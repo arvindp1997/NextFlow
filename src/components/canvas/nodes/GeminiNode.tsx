@@ -155,7 +155,7 @@ function ImageVisionRow({ nodeId }: { nodeId: string }) {
       )}
       <div
         title="Accepts JPEG, PNG, WEBP, or GIF — multiple images can be connected at once"
-        className="mt-1 flex items-center gap-1 text-[10px] text-amber-600"
+        className="mt-1 flex items-center gap-1 text-[10px] text-black/70"
       >
         <Info size={10} />
         Upload requirements
