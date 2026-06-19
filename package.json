@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.5.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@google/genai": "^2.8.0",
     "@prisma/client": "^5.22.0",
     "@trigger.dev/sdk": "4.4.6",

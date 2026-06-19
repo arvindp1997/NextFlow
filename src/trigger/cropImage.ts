@@ -45,6 +45,16 @@ async function performCrop(input: CropImagePayload): Promise<string> {
   const fs = await import("node:fs/promises");
   const ffmpeg = (await import("fluent-ffmpeg")).default;
 
+  // fluent-ffmpeg is just a wrapper around the ffmpeg/ffprobe CLI binaries —
+  // it doesn't bundle them. Point it at the static binaries from the
+  // installer packages instead of relying on them being present on the
+  // system PATH (a very common "Cannot find ffprobe" failure otherwise,
+  // especially on Windows).
+  const ffmpegInstaller = (await import("@ffmpeg-installer/ffmpeg")).default;
+  const ffprobeInstaller = (await import("@ffprobe-installer/ffprobe")).default;
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+  ffmpeg.setFfprobePath(ffprobeInstaller.path);
+
   const res = await fetch(input.inputImageUrl);
   if (!res.ok) throw new Error(`Could not download input image: ${input.inputImageUrl}`);
   const buffer = Buffer.from(await res.arrayBuffer());
@@ -103,6 +113,11 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
   // otherwise) — a single ":original"/"/upload/handle" step with nothing
   // else is the documented minimal "just accept the upload" pattern, no
   // permanent storage destination/credentials required.
+  // createAssembly() returns as soon as the raw upload finishes by default
+  // (waitForCompletion: false) — before the assembly has actually processed
+  // and registered the file under `uploads`/`results`. waitForCompletion:
+  // true makes the SDK poll internally and return the fully-finished
+  // assembly status instead, which is what actually has the file's URL.
   const result = await client.createAssembly({
     params: {
       steps: {
@@ -110,6 +125,7 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
       },
     },
     uploads: { input: Readable.from(buffer) },
+    waitForCompletion: true,
   });
 
   const fromResults = result.results?.[":original"]?.[0] as { ssl_url?: string; url?: string } | undefined;

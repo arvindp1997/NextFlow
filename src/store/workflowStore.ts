@@ -204,7 +204,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (results[n.id] === undefined) return n;
         const r = results[n.id] as Record<string, unknown>;
         if (n.data.kind === "crop-image") {
-          return { ...n, data: { ...n.data, outputImageUrl: r.output_image as string } };
+          // nodeRun.output stores the Crop Image task's raw return shape
+          // ({ outputImageUrl }), not the internal "output_image" handle-id
+          // naming used by the DAG resolver in src/lib/graph.ts.
+          return { ...n, data: { ...n.data, outputImageUrl: r.outputImageUrl as string } };
         }
         if (n.data.kind === "gemini") {
           return { ...n, data: { ...n.data, response: r.response as string } };
