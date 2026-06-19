@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { Plus, Type, ImageIcon, X, Upload, Loader2 } from "lucide-react";
+import { Plus, AlignLeft, ImageIcon, Trash2, Copy, Upload, Loader2, Info, GripVertical } from "lucide-react";
 import { NodeShell } from "@/components/canvas/nodes/NodeShell";
 import { OutputHandleRow } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
@@ -12,9 +12,53 @@ import { uploadImageViaTransloadit, ACCEPTED_IMAGE_TYPES } from "@/lib/transload
 
 type Props = NodeProps<FlowNode & { data: RequestInputsNodeData }>;
 
+const FIELD_TOOLTIPS: Record<RequestInputField["type"], string> = {
+  text_field: "A multi-line text input value",
+  image_field: "An image file uploaded by the user",
+};
+
+function AddFieldButton({ onAdd }: { onAdd: (type: "text_field" | "image_field") => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Add field"
+      >
+        <Plus size={15} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1.5 w-40 rounded-xl border border-border bg-white py-1.5 shadow-lg">
+            <button
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-zinc-700 hover:bg-zinc-50"
+              onClick={() => {
+                onAdd("text_field");
+                setOpen(false);
+              }}
+            >
+              <AlignLeft size={15} className="text-zinc-500" /> Text
+            </button>
+            <button
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-zinc-700 hover:bg-zinc-50"
+              onClick={() => {
+                onAdd("image_field");
+                setOpen(false);
+              }}
+            >
+              <ImageIcon size={15} className="text-zinc-500" /> Image
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function RequestInputsNode({ id, data }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
-  const [picker, setPicker] = useState(false);
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
 
   function addField(type: "text_field" | "image_field") {
@@ -26,7 +70,6 @@ export function RequestInputsNode({ id, data }: Props) {
       value: "",
     };
     updateNodeData(id, { fields: [...data.fields, field] });
-    setPicker(false);
   }
 
   function updateField(fieldId: string, patch: Partial<RequestInputField>) {
@@ -35,6 +78,14 @@ export function RequestInputsNode({ id, data }: Props) {
 
   function removeField(fieldId: string) {
     updateNodeData(id, { fields: data.fields.filter((f) => f.id !== fieldId) });
+  }
+
+  async function copyFieldValue(field: RequestInputField) {
+    try {
+      await navigator.clipboard.writeText(field.value ? String(field.value) : "");
+    } catch (err) {
+      console.error("Copy to clipboard failed:", err);
+    }
   }
 
   async function handleFileSelect(fieldId: string, file: File | undefined) {
@@ -51,39 +102,61 @@ export function RequestInputsNode({ id, data }: Props) {
   }
 
   return (
-    <NodeShell nodeId={id} title="Request-Inputs" deletable={false}>
+    <NodeShell
+      nodeId={id}
+      title="Request-Inputs"
+      deletable={false}
+      titleSlot={
+        <span title="Define the inputs your workflow accepts" className="text-zinc-300 hover:text-zinc-500">
+          <Info size={13} />
+        </span>
+      }
+      headerExtra={<AddFieldButton onAdd={addField} />}
+    >
       {data.fields.length === 0 && (
-        <p className="text-xs text-zinc-400">No fields yet — add a text or image input below.</p>
+        <p className="text-xs text-zinc-400">No fields yet — add a text or image input.</p>
       )}
 
       {data.fields.map((field) => (
-        <div key={field.id} className="rounded-lg border border-border bg-zinc-50/60 p-2">
+        <div key={field.id}>
           <div className="mb-1.5 flex items-center gap-1.5">
-            {field.type === "text_field" ? (
-              <Type size={12} className="text-orange-500" />
-            ) : (
-              <ImageIcon size={12} className="text-blue-500" />
-            )}
+            <GripVertical size={13} className="shrink-0 cursor-grab text-zinc-300" />
             <input
-              className="flex-1 truncate bg-transparent text-[12px] font-medium text-zinc-700 outline-none"
+              className="min-w-0 flex-1 truncate bg-transparent text-[12px] font-medium text-blue-600 outline-none"
               value={field.name}
               onChange={(e) => updateField(field.id, { name: e.target.value })}
             />
-            <button className="text-zinc-300 hover:text-red-500" onClick={() => removeField(field.id)}>
-              <X size={13} />
+            <span title={FIELD_TOOLTIPS[field.type]} className="shrink-0 text-zinc-300 hover:text-zinc-500">
+              <Info size={12} />
+            </span>
+            <button
+              className="shrink-0 text-zinc-300 hover:text-zinc-600"
+              onClick={() => copyFieldValue(field)}
+              aria-label="Copy field value"
+              title="Copy field value"
+            >
+              <Copy size={13} />
+            </button>
+            <button
+              className="shrink-0 text-zinc-300 hover:text-red-500"
+              onClick={() => removeField(field.id)}
+              aria-label="Delete field"
+              title="Delete field"
+            >
+              <Trash2 size={13} />
             </button>
           </div>
 
           {field.type === "text_field" ? (
             <textarea
-              className="w-full resize-none rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-700 outline-none focus:border-zinc-400"
+              className="w-full resize-y rounded-lg bg-zinc-100 px-2.5 py-2 text-xs text-zinc-700 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-300"
               rows={2}
               placeholder="Enter text…"
               value={field.value ?? ""}
               onChange={(e) => updateField(field.id, { value: e.target.value })}
             />
           ) : (
-            <label className="flex cursor-pointer items-center justify-between rounded-md border border-dashed border-border-strong bg-white px-2 py-1.5 text-xs text-zinc-400 hover:border-zinc-400">
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2.5 text-xs text-zinc-400 hover:border-zinc-400">
               <input
                 type="file"
                 accept={ACCEPTED_IMAGE_TYPES}
@@ -101,8 +174,8 @@ export function RequestInputsNode({ id, data }: Props) {
                   <span className="truncate text-zinc-600">{field.value.split("/").pop()}</span>
                 </span>
               ) : (
-                <span className="flex items-center gap-1">
-                  <Upload size={12} /> Upload image
+                <span className="flex items-center gap-1.5 text-zinc-500">
+                  <Upload size={13} /> Upload Image
                 </span>
               )}
             </label>
@@ -111,31 +184,6 @@ export function RequestInputsNode({ id, data }: Props) {
           <OutputHandleRow nodeId={id} handleId={field.id} label="" dataType={field.type === "text_field" ? "text" : "image"} />
         </div>
       ))}
-
-      <div className="relative">
-        <button
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong py-1.5 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
-          onClick={() => setPicker((v) => !v)}
-        >
-          <Plus size={13} /> Add field
-        </button>
-        {picker && (
-          <div className="absolute left-0 right-0 z-10 mt-1 rounded-lg border border-border bg-white py-1 shadow-lg">
-            <button
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-50"
-              onClick={() => addField("text_field")}
-            >
-              <Type size={13} className="text-orange-500" /> Text field
-            </button>
-            <button
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-50"
-              onClick={() => addField("image_field")}
-            >
-              <ImageIcon size={13} className="text-blue-500" /> Image field
-            </button>
-          </div>
-        )}
-      </div>
     </NodeShell>
   );
 }

@@ -11,6 +11,7 @@ export function NodeShell({
   nodeId,
   title,
   titleSlot,
+  headerExtra,
   runStatus = "idle",
   deletable = true,
   runnable = false,
@@ -21,6 +22,7 @@ export function NodeShell({
   nodeId: string;
   title: string;
   titleSlot?: ReactNode;
+  headerExtra?: ReactNode;
   runStatus?: NodeRunStatus;
   deletable?: boolean;
   runnable?: boolean;
@@ -47,6 +49,7 @@ export function NodeShell({
           {titleSlot}
         </div>
         <div className="flex items-center gap-1.5">
+          {headerExtra}
           <StatusPill status={runStatus} />
           {runnable && runStatus !== "running" && (
             <button

@@ -25,7 +25,7 @@ const config: Config = {
         accent: "#f97316",
       },
       boxShadow: {
-        node: "0 1px 2px rgba(0,0,0,0.04), 0 1px 6px rgba(0,0,0,0.04)",
+        node: "0 2px 4px rgba(0,0,0,0.04), 0 10px 24px rgba(0,0,0,0.08)",
         "node-selected": "0 0 0 2px #f97316, 0 4px 12px rgba(0,0,0,0.08)",
       },
       keyframes: {
