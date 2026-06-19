@@ -13,6 +13,36 @@ export function useIsHandleConnected(nodeId: string, handleId: string, side: "so
   );
 }
 
+/**
+ * For a connected single-source input handle, returns the upstream node's
+ * current value so connected (disabled) fields can preview real data
+ * instead of sitting empty — purely cosmetic, the actual value resolution
+ * for execution happens server-side in src/lib/graph.ts regardless of what
+ * this shows.
+ */
+export function useConnectedSourceValue(nodeId: string, handleId: string): string | undefined {
+  const edges = useWorkflowStore((s) => s.edges);
+  const nodes = useWorkflowStore((s) => s.nodes);
+
+  const edge = edges.find((e) => e.target === nodeId && (e.targetHandle ?? "") === handleId);
+  if (!edge) return undefined;
+  const sourceNode = nodes.find((n) => n.id === edge.source);
+  if (!sourceNode) return undefined;
+  const sourceHandle = edge.sourceHandle ?? "";
+
+  if (sourceNode.data.kind === "request-inputs") {
+    const field = sourceNode.data.fields.find((f) => f.id === sourceHandle);
+    return field?.value ? String(field.value) : undefined;
+  }
+  if (sourceNode.data.kind === "gemini") {
+    return sourceNode.data.response;
+  }
+  if (sourceNode.data.kind === "crop-image") {
+    return sourceNode.data.outputImageUrl;
+  }
+  return undefined;
+}
+
 export function InputHandleRow({
   nodeId,
   handleId,

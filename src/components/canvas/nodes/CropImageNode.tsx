@@ -5,7 +5,7 @@ import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
 import { ImageIcon, Loader2 } from "lucide-react";
 import { NodeShell } from "@/components/canvas/nodes/NodeShell";
-import { useIsHandleConnected } from "@/components/canvas/HandleRow";
+import { useIsHandleConnected, useConnectedSourceValue } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { CropImageNodeData } from "@/lib/types";
 import { HANDLE_COLORS } from "@/lib/types";
@@ -24,6 +24,7 @@ const DIMENSION_FIELDS: Array<{ key: keyof CropImageNodeData; handle: string; la
 export function CropImageNode({ id, data }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const inputConnected = useIsHandleConnected(id, "input_image", "target");
+  const connectedImagePreview = useConnectedSourceValue(id, "input_image");
   const [uploading, setUploading] = useState(false);
 
   async function handleUpload(file: File | undefined) {
@@ -59,7 +60,10 @@ export function CropImageNode({ id, data }: Props) {
             </span>
           ) : (
             <>
-              <ImageIcon size={12} /> {data.inputImageUrl ? data.inputImageUrl.split("/").pop() : "Upload image"}
+              <ImageIcon size={12} />{" "}
+              {(connectedImagePreview ?? data.inputImageUrl)
+                ? (connectedImagePreview ?? data.inputImageUrl)!.split("/").pop()
+                : "Upload image"}
             </>
           )}
         </label>

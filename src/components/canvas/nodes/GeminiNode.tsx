@@ -5,7 +5,7 @@ import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
 import { ChevronDown, ChevronRight, Image as ImageIcon, Video, AudioLines, Paperclip } from "lucide-react";
 import { NodeShell } from "@/components/canvas/nodes/NodeShell";
-import { InputHandleRow } from "@/components/canvas/HandleRow";
+import { InputHandleRow, useConnectedSourceValue } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { GeminiNodeData, GeminiModel } from "@/lib/types";
 import { HANDLE_COLORS } from "@/lib/types";
@@ -21,6 +21,8 @@ const MODELS: { value: GeminiModel; label: string }[] = [
 export function GeminiNode({ id, data }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const promptPreview = useConnectedSourceValue(id, "prompt");
+  const systemPromptPreview = useConnectedSourceValue(id, "system_prompt");
 
   return (
     <NodeShell
@@ -47,7 +49,8 @@ export function GeminiNode({ id, data }: Props) {
           className="w-full resize-none rounded-md border border-border bg-white px-2 py-1.5 text-xs outline-none focus:border-zinc-400"
           rows={2}
           placeholder="Enter your prompt…"
-          value={data.prompt ?? ""}
+          value={promptPreview ?? data.prompt ?? ""}
+          readOnly={promptPreview !== undefined}
           onChange={(e) => updateNodeData(id, { prompt: e.target.value })}
         />
       </InputHandleRow>
@@ -57,7 +60,8 @@ export function GeminiNode({ id, data }: Props) {
           className="w-full resize-none rounded-md border border-border bg-white px-2 py-1.5 text-xs outline-none focus:border-zinc-400"
           rows={2}
           placeholder="You are a helpful assistant…"
-          value={data.systemPrompt ?? ""}
+          value={systemPromptPreview ?? data.systemPrompt ?? ""}
+          readOnly={systemPromptPreview !== undefined}
           onChange={(e) => updateNodeData(id, { systemPrompt: e.target.value })}
         />
       </InputHandleRow>
