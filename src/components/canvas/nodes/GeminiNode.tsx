@@ -5,7 +5,7 @@ import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
 import { ChevronDown, ChevronRight, Image as ImageIcon, Video, AudioLines, Paperclip } from "lucide-react";
 import { NodeShell } from "@/components/canvas/nodes/NodeShell";
-import { InputHandleRow, useConnectedSourceValue } from "@/components/canvas/HandleRow";
+import { InputHandleRow, useConnectedSourceValue, useConnectedSourceImages } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { GeminiNodeData, GeminiModel } from "@/lib/types";
 import { HANDLE_COLORS } from "@/lib/types";
@@ -66,7 +66,7 @@ export function GeminiNode({ id, data }: Props) {
         />
       </InputHandleRow>
 
-      <MediaInputRow nodeId={id} handleId="image_vision" label="Image (Vision)" icon={<ImageIcon size={12} />} note="accepts multiple connections" />
+      <ImageVisionRow nodeId={id} />
       <MediaInputRow nodeId={id} handleId="video" label="Video" icon={<Video size={12} />} />
       <MediaInputRow nodeId={id} handleId="audio" label="Audio" icon={<AudioLines size={12} />} />
       <MediaInputRow nodeId={id} handleId="file" label="File" icon={<Paperclip size={12} />} />
@@ -116,6 +116,33 @@ export function GeminiNode({ id, data }: Props) {
         <Handle id="response" type="source" position={Position.Right} style={{ background: HANDLE_COLORS.text, right: -7 }} />
       </div>
     </NodeShell>
+  );
+}
+
+function ImageVisionRow({ nodeId }: { nodeId: string }) {
+  const images = useConnectedSourceImages(nodeId, "image_vision");
+  return (
+    <div className="relative">
+      <Handle id="image_vision" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -7 }} />
+      <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+        Image (Vision)
+        {images.length > 0 && <span className="ml-auto text-[10px] font-normal text-zinc-400">connected</span>}
+      </label>
+      {images.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 rounded-md border border-border bg-white p-1.5">
+          {images.map((url, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={url + i} src={url} alt="" className="h-12 w-12 rounded object-cover" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 rounded-md border border-dashed border-border-strong bg-white px-2 py-1.5 text-xs text-zinc-400">
+          <ImageIcon size={12} />
+          Upload Image
+          <span className="ml-auto text-[10px] text-zinc-300">accepts multiple connections</span>
+        </div>
+      )}
+    </div>
   );
 }
 

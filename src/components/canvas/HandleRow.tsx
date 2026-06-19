@@ -77,6 +77,33 @@ export function InputHandleRow({
   );
 }
 
+/**
+ * For a multi-connection image handle (e.g. Gemini's Image (Vision), which
+ * accepts several edges into the same handle), resolves every connected
+ * upstream node's current image URL. Returns [] gracefully if nodeId
+ * doesn't match any node — lets callers pass a possibly-empty id without
+ * needing to conditionally skip the hook (rules of hooks).
+ */
+export function useConnectedSourceImages(nodeId: string, handleId: string): string[] {
+  const edges = useWorkflowStore((s) => s.edges);
+  const nodes = useWorkflowStore((s) => s.nodes);
+
+  const matchingEdges = edges.filter((e) => e.target === nodeId && (e.targetHandle ?? "") === handleId);
+  const urls: string[] = [];
+  for (const edge of matchingEdges) {
+    const sourceNode = nodes.find((n) => n.id === edge.source);
+    if (!sourceNode) continue;
+    const sourceHandle = edge.sourceHandle ?? "";
+    if (sourceNode.data.kind === "request-inputs") {
+      const field = sourceNode.data.fields.find((f) => f.id === sourceHandle);
+      if (field?.value) urls.push(String(field.value));
+    } else if (sourceNode.data.kind === "crop-image") {
+      if (sourceNode.data.outputImageUrl) urls.push(sourceNode.data.outputImageUrl);
+    }
+  }
+  return urls;
+}
+
 export function OutputHandleRow({
   handleId,
   label,
