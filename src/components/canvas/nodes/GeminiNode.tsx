@@ -3,26 +3,35 @@
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { ChevronDown, ChevronRight, Image as ImageIcon, Video, AudioLines, Paperclip } from "lucide-react";
-import { NodeShell } from "@/components/canvas/nodes/NodeShell";
+import { ChevronDown, ChevronRight, Video, AudioLines, Paperclip, Info, RotateCcw, Upload } from "lucide-react";
+import { NodeShell, CostIndicator } from "@/components/canvas/nodes/NodeShell";
 import { InputHandleRow, useConnectedSourceValue, useConnectedSourceImages } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
-import type { GeminiNodeData, GeminiModel } from "@/lib/types";
+import type { GeminiNodeData, HandleDataType } from "@/lib/types";
 import { HANDLE_COLORS } from "@/lib/types";
 
 type Props = NodeProps<FlowNode & { data: GeminiNodeData }>;
 
-const MODELS: { value: GeminiModel; label: string }[] = [
-  { value: "gemini-3.1-pro", label: "Gemini 3.1 Pro" },
-  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-];
+const DEFAULT_SETTINGS = { temperature: 1, maxOutputTokens: 2048, topP: 0.95 };
 
 export function GeminiNode({ id, data }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const promptPreview = useConnectedSourceValue(id, "prompt");
   const systemPromptPreview = useConnectedSourceValue(id, "system_prompt");
+
+  function resetNode() {
+    updateNodeData(id, {
+      prompt: undefined,
+      systemPrompt: undefined,
+      imageUrls: [],
+      videoUrl: undefined,
+      audioUrl: undefined,
+      fileUrl: undefined,
+      response: undefined,
+      settings: DEFAULT_SETTINGS,
+    });
+  }
 
   return (
     <NodeShell
@@ -31,20 +40,23 @@ export function GeminiNode({ id, data }: Props) {
       runStatus={data.runStatus}
       runnable
       titleSlot={
-        <select
-          className="rounded-md border border-border bg-zinc-50 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 outline-none"
-          value={data.model}
-          onChange={(e) => updateNodeData(id, { model: e.target.value as GeminiModel })}
-        >
-          {MODELS.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <span title="Generates text using Gemini, optionally grounded on uploaded media" className="text-zinc-300 hover:text-zinc-500">
+          <Info size={13} />
+        </span>
       }
+      headerExtra={
+        <button
+          className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+          onClick={resetNode}
+          aria-label="Reset node"
+          title="Reset to defaults"
+        >
+          <RotateCcw size={14} />
+        </button>
+      }
+      footer={<CostIndicator estimate="0.0001 M" />}
     >
-      <InputHandleRow nodeId={id} handleId="prompt" label="Prompt" dataType="text" required>
+      <InputHandleRow nodeId={id} handleId="prompt" label="Prompt" dataType="text" required tooltip="The main instruction sent to Gemini">
         <textarea
           className="w-full resize-none rounded-md border border-border bg-white px-2 py-1.5 text-xs outline-none focus:border-zinc-400"
           rows={2}
@@ -55,7 +67,7 @@ export function GeminiNode({ id, data }: Props) {
         />
       </InputHandleRow>
 
-      <InputHandleRow nodeId={id} handleId="system_prompt" label="System Prompt" dataType="text">
+      <InputHandleRow nodeId={id} handleId="system_prompt" label="System Prompt" dataType="text" tooltip="Sets Gemini's role and behavior for this call">
         <textarea
           className="w-full resize-none rounded-md border border-border bg-white px-2 py-1.5 text-xs outline-none focus:border-zinc-400"
           rows={2}
@@ -67,9 +79,9 @@ export function GeminiNode({ id, data }: Props) {
       </InputHandleRow>
 
       <ImageVisionRow nodeId={id} />
-      <MediaInputRow nodeId={id} handleId="video" label="Video" icon={<Video size={12} />} />
-      <MediaInputRow nodeId={id} handleId="audio" label="Audio" icon={<AudioLines size={12} />} />
-      <MediaInputRow nodeId={id} handleId="file" label="File" icon={<Paperclip size={12} />} />
+      <MediaInputRow nodeId={id} handleId="video" label="Video" icon={<Video size={13} />} dataType="video" />
+      <MediaInputRow nodeId={id} handleId="audio" label="Audio" icon={<AudioLines size={13} />} dataType="audio" />
+      <MediaInputRow nodeId={id} handleId="file" label="File" icon={<Paperclip size={13} />} dataType="file" />
 
       <div>
         <button
@@ -108,8 +120,8 @@ export function GeminiNode({ id, data }: Props) {
         )}
       </div>
 
-      <div className="relative">
-        <label className="mb-1 block text-[11px] font-medium text-zinc-500">Response</label>
+      <div className="relative border-t border-border pt-3">
+        <label className="mb-1 block text-[11px] font-normal text-zinc-800">Response</label>
         <div className="min-h-[56px] rounded-md border border-border bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600">
           {data.response ? <p className="whitespace-pre-wrap">{data.response}</p> : <span className="text-zinc-400">No output yet</span>}
         </div>
@@ -124,7 +136,7 @@ function ImageVisionRow({ nodeId }: { nodeId: string }) {
   return (
     <div className="relative">
       <Handle id="image_vision" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -7 }} />
-      <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+      <label className="mb-1 flex items-center gap-1 text-[11px] font-normal text-zinc-800">
         Image (Vision)
         {images.length > 0 && <span className="ml-auto text-[10px] font-normal text-zinc-400">connected</span>}
       </label>
@@ -136,12 +148,18 @@ function ImageVisionRow({ nodeId }: { nodeId: string }) {
           ))}
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 rounded-md border border-dashed border-border-strong bg-white px-2 py-1.5 text-xs text-zinc-400">
-          <ImageIcon size={12} />
+        <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2 text-xs text-zinc-400">
+          <Upload size={12} />
           Upload Image
-          <span className="ml-auto text-[10px] text-zinc-300">accepts multiple connections</span>
         </div>
       )}
+      <div
+        title="Accepts JPEG, PNG, WEBP, or GIF — multiple images can be connected at once"
+        className="mt-1 flex items-center gap-1 text-[10px] text-amber-600"
+      >
+        <Info size={10} />
+        Upload requirements
+      </div>
     </div>
   );
 }
@@ -151,21 +169,19 @@ function MediaInputRow({
   handleId,
   label,
   icon,
-  note,
+  dataType,
 }: {
   nodeId: string;
   handleId: string;
   label: string;
   icon: React.ReactNode;
-  note?: string;
+  dataType: HandleDataType;
 }) {
-  const dataType = handleId === "image_vision" ? "image" : handleId === "video" ? "video" : handleId === "audio" ? "audio" : "file";
   return (
     <InputHandleRow nodeId={nodeId} handleId={handleId} label={label} dataType={dataType}>
-      <div className="flex items-center gap-1.5 rounded-md border border-dashed border-border-strong bg-white px-2 py-1.5 text-xs text-zinc-400">
+      <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2 text-xs text-zinc-400">
         {icon}
-        Upload {label.split(" ")[0]}
-        {note && <span className="ml-auto text-[10px] text-zinc-300">{note}</span>}
+        Upload {label}
       </div>
     </InputHandleRow>
   );

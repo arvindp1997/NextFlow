@@ -2,6 +2,7 @@
 
 import { Handle, Position } from "@xyflow/react";
 import type { ReactNode } from "react";
+import { Info } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { HANDLE_COLORS, type HandleDataType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export function InputHandleRow({
   label,
   dataType,
   required,
+  tooltip,
   children,
 }: {
   nodeId: string;
@@ -56,6 +58,7 @@ export function InputHandleRow({
   label: string;
   dataType: HandleDataType;
   required?: boolean;
+  tooltip?: string;
   children: ReactNode;
 }) {
   const connected = useIsHandleConnected(nodeId, handleId, "target");
@@ -67,9 +70,14 @@ export function InputHandleRow({
         position={Position.Left}
         style={{ background: HANDLE_COLORS[dataType], left: -7 }}
       />
-      <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+      <label className="mb-1 flex items-center gap-1 text-[11px] font-normal text-zinc-800">
         {label}
-        {required && <span className="text-orange-500">*</span>}
+        {required && <span className="text-red-500">*</span>}
+        {tooltip && (
+          <span title={tooltip} className="text-zinc-300 hover:text-zinc-500">
+            <Info size={11} />
+          </span>
+        )}
         {connected && <span className="ml-auto text-[10px] font-normal text-zinc-400">connected</span>}
       </label>
       <div className={cn(connected && "pointer-events-none opacity-50")}>{children}</div>

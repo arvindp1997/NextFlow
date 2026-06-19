@@ -110,6 +110,19 @@ export const HANDLE_COLORS: Record<HandleDataType, string> = {
   any: "#6366f1",
 };
 
+// Tailwind text-color classes matching HANDLE_COLORS, used for field labels
+// whose text is colored to match their handle's data type (confirmed by the
+// Gemini node reference — Prompt/System Prompt orange, Image (Vision) blue,
+// Video green, Audio cyan).
+export const HANDLE_TEXT_COLOR_CLASS: Record<HandleDataType, string> = {
+  text: "text-orange-500",
+  image: "text-blue-500",
+  video: "text-green-500",
+  audio: "text-cyan-500",
+  file: "text-purple-500",
+  any: "text-indigo-500",
+};
+
 // Used specifically for Crop Image's X/Y/Width/Height percent slider dots,
 // which are visually distinct (pink/magenta) from the generic "any" color
 // used by Response's result handle, even though both share the "any"
