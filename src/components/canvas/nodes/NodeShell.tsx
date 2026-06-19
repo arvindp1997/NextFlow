@@ -1,11 +1,23 @@
 "use client";
 
-import { MoreHorizontal, Loader2, CheckCircle2, XCircle, Trash2, Play } from "lucide-react";
+import { MoreHorizontal, Loader2, CheckCircle2, XCircle, Trash2, Play, Coins } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { useRunRequestStore } from "@/store/runRequestStore";
 import type { NodeRunStatus } from "@/lib/types";
+
+/**
+ * Purely decorative — there's no real token/pricing computation wired up
+ * anywhere in the app. This just matches the visual in the reference UI.
+ */
+export function CostIndicator({ estimate }: { estimate: string }) {
+  return (
+    <div className="flex items-center justify-end gap-1 text-[11px] text-zinc-400">
+      <Coins size={11} /> ~{estimate}
+    </div>
+  );
+}
 
 export function NodeShell({
   nodeId,
@@ -53,17 +65,17 @@ export function NodeShell({
           <StatusPill status={runStatus} />
           {runnable && runStatus !== "running" && (
             <button
-              className="flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-200"
+              className="flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1 text-[12px] font-medium text-emerald-700 hover:bg-emerald-200"
               onClick={() => requestSingleRun(nodeId)}
               aria-label="Run node"
             >
-              <Play size={10} /> Run
+              <Play size={11} /> Run
             </button>
           )}
           {deletable && (
             <div className="relative">
               <button
-                className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                className="rounded-md border border-border p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-label="Node menu"
               >
