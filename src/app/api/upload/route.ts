@@ -7,12 +7,12 @@ import { requireUserId, UnauthorizedError } from "@/lib/auth";
  * upload used inside Request-Inputs image_field. Keeps the auth secret
  * server-side; the browser only ever sees the auth key + signature.
  *
- * The assembly step is defined inline (a plain /file/store, which just
- * stores the file on Transloadit's own temporary storage) rather than via a
- * Transloadit Template, so no external dashboard configuration is required
- * beyond having a valid Auth Key/Secret — avoids the class of errors where a
- * template references credentials (e.g. an S3 export step) that were never
- * actually set up.
+ * Transloadit requires a non-empty `steps` object on every assembly (an
+ * empty/omitted one is rejected with ASSEMBLY_NO_STEPS) — but a single
+ * ":original" step using the /upload/handle robot, with no further
+ * processing or export steps, is the documented minimal "just accept the
+ * upload" pattern. The uploaded file then gets a temporary ssl_url with no
+ * permanent storage destination/credentials required.
  */
 export async function POST() {
   try {
@@ -27,7 +27,7 @@ export async function POST() {
     const params = JSON.stringify({
       auth: { key: authKey, expires: expiresIn(60) },
       steps: {
-        store: { robot: "/file/store" },
+        ":original": { robot: "/upload/handle" },
       },
       fields: {},
     });

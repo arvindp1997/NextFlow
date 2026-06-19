@@ -99,17 +99,22 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
   const { Readable } = await import("node:stream");
   const client = new Transloadit({ authKey, authSecret });
 
+  // Transloadit requires a non-empty `steps` object (ASSEMBLY_NO_STEPS
+  // otherwise) — a single ":original"/"/upload/handle" step with nothing
+  // else is the documented minimal "just accept the upload" pattern, no
+  // permanent storage destination/credentials required.
   const result = await client.createAssembly({
     params: {
       steps: {
-        store: { robot: "/file/store" },
+        ":original": { robot: "/upload/handle" },
       },
     },
     uploads: { input: Readable.from(buffer) },
   });
 
-  const stored = result.results?.store?.[0] as { ssl_url?: string; url?: string } | undefined;
-  const url = stored?.ssl_url ?? stored?.url;
-  if (!url) throw new Error("Transloadit assembly did not return a stored file URL");
+  const fromResults = result.results?.[":original"]?.[0] as { ssl_url?: string; url?: string } | undefined;
+  const fromUploads = result.uploads?.[0] as { ssl_url?: string | null; url?: string | null } | undefined;
+  const url = fromResults?.ssl_url ?? fromResults?.url ?? fromUploads?.ssl_url ?? fromUploads?.url;
+  if (!url) throw new Error("Transloadit assembly did not return an uploaded file URL");
   return url;
 }
