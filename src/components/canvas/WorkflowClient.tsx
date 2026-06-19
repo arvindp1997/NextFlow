@@ -37,6 +37,14 @@ export function WorkflowClient({
   const [nameInput, setNameInput] = useState(name);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set right after an import; tells refreshHistory's poll to skip
+  // re-applying historical run results onto the canvas until the user
+  // explicitly triggers a new run. Without this, the 2s poll would fetch
+  // the *previous* run's results (which share the same node ids as the
+  // just-imported nodes) and immediately overwrite the freshly-imported
+  // values right back to what they were before — the import would flash
+  // correctly for a moment, then visibly "reset" on the very next poll tick.
+  const suppressHistorySync = useRef(false);
 
   // Initial load into the canvas store.
   useEffect(() => {
@@ -70,7 +78,7 @@ export function WorkflowClient({
     setHistoryLoading(false);
 
     const latest = fetched[0];
-    if (latest) {
+    if (latest && !suppressHistorySync.current) {
       const statusMap: Record<string, "idle" | "pending" | "running" | "success" | "failed"> = {};
       const resultMap: Record<string, unknown> = {};
       for (const nr of latest.nodeRuns) {
@@ -90,6 +98,7 @@ export function WorkflowClient({
 
   const runWorkflow = useCallback(
     async (scope: "full" | "partial" | "single", targetNodeIds: string[] = []) => {
+      suppressHistorySync.current = false;
       await fetch(`/api/workflows/${workflowId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,8 +156,9 @@ export function WorkflowClient({
     try {
       const parsed = JSON.parse(text);
       if (Array.isArray(parsed.nodes) && Array.isArray(parsed.edges)) {
-        store.load(workflowId, parsed.name ?? nameInput, parsed.nodes, parsed.edges);
-        useWorkflowStore.setState({ dirty: true });
+        suppressHistorySync.current = true;
+        useWorkflowStore.getState().importGraph(parsed.nodes, parsed.edges, parsed.name);
+        if (parsed.name) setNameInput(parsed.name);
       }
     } catch (err) {
       console.error("Invalid workflow JSON:", err);

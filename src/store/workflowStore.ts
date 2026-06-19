@@ -38,6 +38,7 @@ interface WorkflowState {
   dirty: boolean;
 
   load: (workflowId: string, name: string, nodes: FlowNode[], edges: FlowEdge[]) => void;
+  importGraph: (nodes: FlowNode[], edges: FlowEdge[], name?: string) => void;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
@@ -75,6 +76,28 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   load: (workflowId, name, nodes, edges) => {
     set({ workflowId, name, nodes, edges, past: [], future: [], dirty: false, selectedNodeIds: [] });
+  },
+
+  /**
+   * Used by JSON import. Unlike load() (used for the initial fetch-from-DB
+   * mount, intentionally NOT dirty), this marks dirty in the SAME set()
+   * call that replaces nodes/edges, so the autosave subscriber's
+   * `state.nodes !== prev.nodes` check actually sees a change and fires.
+   * Calling load() then a separate `setState({dirty: true})` looks correct
+   * in the browser but silently never persists, since by the second call
+   * nodes/edges are already the new value and "haven't changed" relative
+   * to that call's own prev state — this was a real bug where Import
+   * appeared to work but never actually saved to the database.
+   */
+  importGraph: (nodes, edges, name) => {
+    pushHistory(get, set);
+    set({
+      nodes,
+      edges,
+      ...(name ? { name } : {}),
+      selectedNodeIds: [],
+      dirty: true,
+    });
   },
 
   onNodesChange: (changes) => {
