@@ -1,0 +1,97 @@
+// NextFlow data model
+// Workflows belong to a Clerk user (clerkUserId). Nodes/edges are stored as JSON
+// blobs that mirror the React Flow graph 1:1, so the canvas can rehydrate exactly
+// what was last saved. Runs + NodeRuns persist execution history independently of
+// the live graph state, so history survives later edits to the workflow.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkflowStatus {
+  IDLE
+  RUNNING
+}
+
+enum RunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+  CANCELED
+}
+
+enum RunScope {
+  FULL
+  PARTIAL
+  SINGLE
+}
+
+enum NodeRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model Workflow {
+  id           String         @id @default(cuid())
+  clerkUserId  String
+  name         String         @default("Untitled Workflow")
+  status       WorkflowStatus @default(IDLE)
+  nodes        Json           @default("[]")
+  edges        Json           @default("[]")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  lastEditedAt DateTime       @default(now())
+
+  runs Run[]
+
+  @@index([clerkUserId])
+}
+
+model Run {
+  id          String    @id @default(cuid())
+  workflowId  String
+  workflow    Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status      RunStatus @default(RUNNING)
+  scope       RunScope
+  // ids of nodes that were targeted for SINGLE/PARTIAL scope; empty for FULL
+  targetNodeIds Json    @default("[]")
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  durationMs  Int?
+  // Trigger.dev run handle id for the orchestrator task itself, so a
+  // RUNNING run can be canceled from the UI if it gets stuck.
+  triggerRunId String?
+
+  nodeRuns NodeRun[]
+
+  @@index([workflowId])
+}
+
+model NodeRun {
+  id          String        @id @default(cuid())
+  runId       String
+  run         Run           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  nodeId      String
+  nodeType    String
+  nodeLabel   String
+  status      NodeRunStatus @default(PENDING)
+  inputs      Json          @default("{}")
+  output      Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  durationMs  Int?
+  // Trigger.dev run handle id, so we can look up live status/logs
+  triggerRunId String?
+
+  @@index([runId])
+}
