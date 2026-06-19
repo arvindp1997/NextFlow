@@ -42,6 +42,7 @@ interface WorkflowState {
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   onConnect: (connection: Connection) => void;
+  deleteEdge: (edgeId: string) => void;
   addNode: (type: "crop-image" | "gemini", position: { x: number; y: number }) => void;
   updateNodeData: (nodeId: string, patch: Partial<NextFlowNodeData>) => void;
   deleteNode: (nodeId: string) => void;
@@ -116,9 +117,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (!isValidConnection(connection, get().nodes)) return;
     pushHistory(get, set);
     set({
-      edges: addEdge({ ...connection, animated: true, style: { stroke: "#f97316", strokeWidth: 2 } }, get().edges),
+      edges: addEdge({ ...connection, animated: true }, get().edges),
       dirty: true,
     });
+  },
+
+  deleteEdge: (edgeId) => {
+    pushHistory(get, set);
+    set({ edges: get().edges.filter((e) => e.id !== edgeId), dirty: true });
   },
 
   addNode: (type, position) => {
@@ -253,7 +259,7 @@ export function isValidConnection(connection: Connection, nodes: FlowNode[]): bo
   return sourceType === targetType;
 }
 
-function handleType(
+export function handleType(
   nodeId: string | null,
   handleId: string | null | undefined,
   nodes: FlowNode[],

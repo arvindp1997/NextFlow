@@ -22,6 +22,10 @@ export interface RequestInputsNodeData {
 export interface ResponseNodeData {
   kind: "response";
   result?: unknown;
+  // Custom display-name overrides for each connected source's result card,
+  // keyed by edge id. Falls back to the source node's auto-derived label
+  // (e.g. "gemini_3_1_pro") when not set.
+  resultLabels?: Record<string, string>;
   [key: string]: unknown;
 }
 
@@ -70,6 +74,19 @@ export type NextFlowNodeData =
   | CropImageNodeData
   | GeminiNodeData;
 
+export function nodeDisplayLabel(data: NextFlowNodeData): string {
+  if (data.kind === "request-inputs") return "Request-Inputs";
+  if (data.kind === "response") return "Response";
+  return data.label; // crop-image and gemini both carry their own label
+}
+
+export function slugifyLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 export interface WorkflowSummary {
   id: string;
   name: string;
@@ -88,10 +105,17 @@ export const HANDLE_COLORS: Record<HandleDataType, string> = {
   text: "#f97316",
   image: "#3b82f6",
   video: "#22c55e",
-  audio: "#3b82f6",
+  audio: "#06b6d4",
   file: "#a855f7",
-  any: "#94a3b8",
+  any: "#6366f1",
 };
+
+// Used specifically for Crop Image's X/Y/Width/Height percent slider dots,
+// which are visually distinct (pink/magenta) from the generic "any" color
+// used by Response's result handle, even though both share the "any"
+// HandleDataType for connection-compatibility purposes (percent sliders
+// accept numeric/text connections from any source, same as Response).
+export const PERCENT_HANDLE_COLOR = "#ec4899";
 
 export interface NodeRunSummary {
   nodeId: string;
