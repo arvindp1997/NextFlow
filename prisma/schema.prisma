@@ -5,7 +5,13 @@
 // the live graph state, so history survives later edits to the workflow.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" keeps local dev working (generates whatever engine matches your
+  // own machine, e.g. Windows). "debian-openssl-3.0.x" is what Trigger.dev's
+  // cloud runners actually need at runtime — without it, the client only
+  // contains a Windows-specific binary and fails to locate a query engine
+  // once deployed.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
