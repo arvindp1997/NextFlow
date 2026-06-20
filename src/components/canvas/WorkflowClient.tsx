@@ -8,8 +8,6 @@ import {
   Play,
   Undo2,
   Redo2,
-  Download,
-  Upload,
   Loader2,
   CheckCircle2,
 } from "lucide-react";
@@ -35,16 +33,7 @@ export function WorkflowClient({
   const [historyLoading, setHistoryLoading] = useState(true);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [nameInput, setNameInput] = useState(name);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Set right after an import; tells refreshHistory's poll to skip
-  // re-applying historical run results onto the canvas until the user
-  // explicitly triggers a new run. Without this, the 2s poll would fetch
-  // the *previous* run's results (which share the same node ids as the
-  // just-imported nodes) and immediately overwrite the freshly-imported
-  // values right back to what they were before — the import would flash
-  // correctly for a moment, then visibly "reset" on the very next poll tick.
-  const suppressHistorySync = useRef(false);
 
   // Initial load into the canvas store.
   useEffect(() => {
@@ -78,7 +67,7 @@ export function WorkflowClient({
     setHistoryLoading(false);
 
     const latest = fetched[0];
-    if (latest && !suppressHistorySync.current) {
+    if (latest) {
       const statusMap: Record<string, "idle" | "pending" | "running" | "success" | "failed"> = {};
       const resultMap: Record<string, unknown> = {};
       for (const nr of latest.nodeRuns) {
@@ -98,7 +87,6 @@ export function WorkflowClient({
 
   const runWorkflow = useCallback(
     async (scope: "full" | "partial" | "single", targetNodeIds: string[] = []) => {
-      suppressHistorySync.current = false;
       await fetch(`/api/workflows/${workflowId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,36 +123,6 @@ export function WorkflowClient({
     }
   }
 
-  function handleExport() {
-    const data = JSON.stringify({ name: nameInput, nodes: store.nodes, edges: store.edges }, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${nameInput.replace(/\s+/g, "-").toLowerCase()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function handleImportClick() {
-    fileInputRef.current?.click();
-  }
-
-  async function handleImportFile(file: File | undefined) {
-    if (!file) return;
-    const text = await file.text();
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed.nodes) && Array.isArray(parsed.edges)) {
-        suppressHistorySync.current = true;
-        useWorkflowStore.getState().importGraph(parsed.nodes, parsed.edges, parsed.name);
-        if (parsed.name) setNameInput(parsed.name);
-      }
-    } catch (err) {
-      console.error("Invalid workflow JSON:", err);
-    }
-  }
-
   const selectedCount = store.selectedNodeIds.length;
 
   return (
@@ -190,19 +148,6 @@ export function WorkflowClient({
           <Button variant="ghost" size="sm" onClick={() => store.redo()} aria-label="Redo">
             <Redo2 size={14} />
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleExport}>
-            <Download size={13} /> Export
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleImportClick}>
-            <Upload size={13} /> Import
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={(e) => handleImportFile(e.target.files?.[0])}
-          />
           {selectedCount > 1 && (
             <Button size="sm" onClick={() => runWorkflow("partial", store.selectedNodeIds)}>
               <Play size={13} /> Run Selected ({selectedCount})

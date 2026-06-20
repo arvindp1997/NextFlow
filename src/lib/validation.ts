@@ -43,6 +43,11 @@ export const saveWorkflowSchema = z.object({
 export const createWorkflowSchema = z.object({
   name: z.string().min(1).max(120).default("Untitled Workflow"),
   template: z.enum(["blank", "sample"]).default("blank"),
+  // For dashboard-level "Import" — creating a brand new workflow directly
+  // from an uploaded JSON file rather than starting blank/from a template.
+  // When both are present they take precedence over `template`.
+  nodes: z.array(flowNodeSchema).optional(),
+  edges: z.array(flowEdgeSchema).optional(),
 });
 
 export const renameWorkflowSchema = z.object({

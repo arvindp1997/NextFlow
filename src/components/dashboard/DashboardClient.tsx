@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Upload, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import { WorkflowThumbnail } from "@/components/dashboard/WorkflowThumbnail";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { CreateWorkflowDialog } from "@/components/dashboard/CreateWorkflowDialog";
 import { RenameDialog } from "@/components/dashboard/RenameDialog";
@@ -18,6 +19,9 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<WorkflowSummary | null>(null);
   const [deleting, setDeleting] = useState<WorkflowSummary | null>(null);
+  const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCreate(name: string, template: "blank" | "sample" = "blank") {
     const res = await fetch("/api/workflows", {
@@ -28,6 +32,55 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     if (!res.ok) return;
     const { workflow } = await res.json();
     router.push(`/workflow/${workflow.id}`);
+  }
+
+  async function handleImportFile(file: File | undefined) {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+        console.error("Invalid workflow JSON: missing nodes/edges");
+        return;
+      }
+      const res = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: parsed.name ?? file.name.replace(/\.json$/i, ""), nodes: parsed.nodes, edges: parsed.edges }),
+      });
+      if (!res.ok) return;
+      const { workflow } = await res.json();
+      router.push(`/workflow/${workflow.id}`);
+    } catch (err) {
+      console.error("Failed to import workflow:", err);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleDuplicate(id: string) {
+    const res = await fetch(`/api/workflows/${id}/duplicate`, { method: "POST" });
+    if (!res.ok) return;
+    const { workflow } = await res.json();
+    setWorkflows((prev) => [
+      { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
+      ...prev,
+    ]);
+  }
+
+  async function handleExportJson(w: WorkflowSummary) {
+    const res = await fetch(`/api/workflows/${w.id}`);
+    if (!res.ok) return;
+    const { workflow } = await res.json();
+    const data = JSON.stringify({ name: workflow.name, nodes: workflow.nodes, edges: workflow.edges }, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${workflow.name.replace(/\s+/g, "-").toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleRename(id: string, name: string) {
@@ -48,41 +101,90 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     setDeleting(null);
   }
 
+  const filteredWorkflows = search.trim()
+    ? workflows.filter((w) => w.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : workflows;
+
   return (
     <div className="flex min-h-screen bg-canvas">
       <Sidebar />
       <main className="flex-1 px-8 py-8">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-6 flex items-center justify-between">
+        <div className="mx-auto max-w-8xl pl-4 pr-4">
+          <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-zinc-900">Your workflows</h1>
-              <p className="mt-1 text-sm text-zinc-500">Build and run LLM workflows with Gemini.</p>
+              <h1 className="text-xl font-semibold text-zinc-900">Flow</h1>
+              <p className="mt-1 text-sm text-zinc-500">Build workflows or run models directly</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => handleCreate("Product Marketing Pipeline (Sample)", "sample")}>
-                <Sparkles size={16} /> Load Sample Workflow
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => handleImportFile(e.target.files?.[0])}
+              />
+              <Button variant="secondary" size="sm" disabled={importing} onClick={() => importInputRef.current?.click()}>
+                <Upload size={14} /> {importing ? "Importing…" : "Import"}
               </Button>
-              <Button onClick={() => setCreating(true)}>
-                <Plus size={16} /> New Workflow
+              <Button size="sm" className="w-9 px-0" onClick={() => setCreating(true)} aria-label="New workflow">
+                <Plus size={15} />
               </Button>
             </div>
           </div>
 
-          {workflows.length === 0 ? (
-            <EmptyState onCreate={() => setCreating(true)} />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {workflows.map((w) => (
-                <WorkflowCard
-                  key={w.id}
-                  workflow={w}
-                  onOpen={() => router.push(`/workflow/${w.id}`)}
-                  onRename={() => setRenaming(w)}
-                  onDelete={() => setDeleting(w)}
+          <section className="mb-10">
+            <h2 className="text-sm font-semibold text-zinc-900">System Workflows</h2>
+            <p className="mt-1 text-xs text-zinc-500">Prebuilt workflow templates - click to open and start using.</p>
+            <button
+              className="mt-4 w-72 cursor-pointer overflow-hidden rounded-2xl border border-border bg-white text-left shadow-node transition-shadow hover:shadow-node-selected"
+              onClick={() => handleCreate("Product Marketing Pipeline (Sample)", "sample")}
+            >
+              <WorkflowThumbnail />
+              <div className="border-t border-border px-3 py-2.5">
+                <span className="text-sm font-semibold text-zinc-900">Product Marketing Pipeline</span>
+              </div>
+            </button>
+          </section>
+
+          <section>
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900">Your Workflows</h2>
+                <p className="mt-1 text-xs text-zinc-500">Open one to edit, run, and review history.</p>
+              </div>
+              <div className="relative w-64">
+                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search workflows…"
+                  className="w-full rounded-lg border border-border bg-white py-1.5 pl-8 pr-3 text-sm text-zinc-700 outline-none focus:border-zinc-400"
                 />
-              ))}
+              </div>
             </div>
-          )}
+
+            <div className="mt-4">
+              {workflows.length === 0 ? (
+                <EmptyState onCreate={() => setCreating(true)} />
+              ) : filteredWorkflows.length === 0 ? (
+                <p className="text-sm text-zinc-400">No workflows match &ldquo;{search}&rdquo;.</p>
+              ) : (
+                <div className="flex flex-wrap gap-4">
+                  {filteredWorkflows.map((w) => (
+                    <WorkflowCard
+                      key={w.id}
+                      workflow={w}
+                      onOpen={() => router.push(`/workflow/${w.id}`)}
+                      onRename={() => setRenaming(w)}
+                      onDuplicate={() => handleDuplicate(w.id)}
+                      onExport={() => handleExportJson(w)}
+                      onDelete={() => setDeleting(w)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </main>
 
