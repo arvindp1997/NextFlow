@@ -3,11 +3,12 @@
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { CornerDownLeft, Info, Pencil, Trash2 } from "lucide-react";
+import { CornerDownLeft, Pencil, Trash2 } from "lucide-react";
 import { useConnectedSourceImages } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { ResponseNodeData } from "@/lib/types";
 import { HANDLE_COLORS, nodeDisplayLabel, slugifyLabel } from "@/lib/types";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: ResponseNodeData }>;
 
@@ -25,9 +26,7 @@ export function ResponseNode({ id, data, selected }: Props) {
           <CornerDownLeft size={13} />
         </span>
         <span className="text-[13px] font-semibold text-zinc-800">Response</span>
-        <span title="The final output collected from your workflow" className="text-zinc-300 hover:text-zinc-500">
-          <Info size={13} />
-        </span>
+         <Tooltip text={"The final output collected from your workflow"} />
       </div>
 
       <div className="space-y-2.5 px-3 py-3">

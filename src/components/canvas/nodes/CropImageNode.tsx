@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { ImageIcon, Loader2, Info, Upload } from "lucide-react";
+import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { NodeShell, CostIndicator } from "@/components/canvas/nodes/NodeShell";
 import { useIsHandleConnected, useConnectedSourceValue } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
@@ -11,6 +11,7 @@ import type { CropImageNodeData } from "@/lib/types";
 import { HANDLE_COLORS, PERCENT_HANDLE_COLOR } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { uploadImageViaTransloadit, ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: CropImageNodeData }>;
 
@@ -48,9 +49,7 @@ export function CropImageNode({ id, data, selected }: Props) {
       runStatus={data.runStatus}
       runnable
       titleSlot={
-        <span title="Crops an image to a percentage-based region" className="text-zinc-300 hover:text-zinc-500">
-          <Info size={13} />
-        </span>
+         <Tooltip text={"Crops an image to a percentage-based region"} />
       }
       footer={<CostIndicator estimate="0.005 M" />}
     >
@@ -119,9 +118,9 @@ function DimensionRow({
       <Handle id={field.handle} type="target" position={Position.Left} style={{ background: PERCENT_HANDLE_COLOR, left: -7 }} />
       <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-pink-600">
         {field.label}
-        <span title={field.tooltip} className="text-zinc-300 hover:text-zinc-500">
-          <Info size={11} />
-        </span>
+       
+        {field.tooltip && <Tooltip text={field.tooltip} />}
+        
       </label>
       <div className="flex items-center gap-2">
         <input

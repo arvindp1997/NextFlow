@@ -2,10 +2,10 @@
 
 import { Handle, Position } from "@xyflow/react";
 import type { ReactNode } from "react";
-import { Info } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { HANDLE_COLORS, type HandleDataType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Tooltip } from "../ui/Tooltip";
 
 export function useIsHandleConnected(nodeId: string, handleId: string, side: "source" | "target"): boolean {
   const edges = useWorkflowStore((s) => s.edges);
@@ -73,11 +73,8 @@ export function InputHandleRow({
       <label className="mb-1 flex items-center gap-1 text-[11px] font-normal text-zinc-800">
         {label}
         {required && <span className="text-red-500">*</span>}
-        {tooltip && (
-          <span title={tooltip} className="text-zinc-300 hover:text-zinc-500">
-            <Info size={11} />
-          </span>
-        )}
+       
+        {tooltip && <Tooltip text={tooltip} />}
         {connected && <span className="ml-auto text-[10px] font-normal text-zinc-400">connected</span>}
       </label>
       <div className={cn(connected && "pointer-events-none opacity-50")}>{children}</div>

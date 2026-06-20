@@ -3,12 +3,13 @@
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { ChevronDown, ChevronRight, Video, AudioLines, Paperclip, Info, RotateCcw, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, Video, AudioLines, Paperclip, RotateCcw, Upload } from "lucide-react";
 import { NodeShell, CostIndicator } from "@/components/canvas/nodes/NodeShell";
 import { InputHandleRow, useConnectedSourceValue, useConnectedSourceImages } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { GeminiNodeData, HandleDataType } from "@/lib/types";
 import { HANDLE_COLORS } from "@/lib/types";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: GeminiNodeData }>;
 
@@ -41,9 +42,7 @@ export function GeminiNode({ id, data, selected }: Props) {
       runStatus={data.runStatus}
       runnable
       titleSlot={
-        <span title="Generates text using Gemini, optionally grounded on uploaded media" className="text-zinc-300 hover:text-zinc-500">
-          <Info size={13} />
-        </span>
+        <Tooltip text={"Generates text using Gemini, optionally grounded on uploaded media"} />
       }
       headerExtra={
         <button
@@ -155,10 +154,10 @@ function ImageVisionRow({ nodeId }: { nodeId: string }) {
         </div>
       )}
       <div
-        title="Accepts JPEG, PNG, WEBP, or GIF — multiple images can be connected at once"
         className="mt-1 flex items-center gap-1 text-[10px] text-black/70"
       >
-        <Info size={10} />
+        <Tooltip text={"Accepts JPEG, PNG, WEBP, or GIF — multiple images can be connected at once"} />
+
         Upload requirements
       </div>
     </div>

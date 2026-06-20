@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { Plus, AlignLeft, ImageIcon, Trash2, Copy, Upload, Loader2, Info, GripVertical } from "lucide-react";
+import { Plus, AlignLeft, ImageIcon, Trash2, Copy, Upload, Loader2, GripVertical } from "lucide-react";
 import { NodeShell } from "@/components/canvas/nodes/NodeShell";
 import { OutputHandleRow } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { RequestInputsNodeData, RequestInputField } from "@/lib/types";
 import { uid } from "@/lib/utils";
 import { uploadImageViaTransloadit, ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: RequestInputsNodeData }>;
 
@@ -108,9 +109,7 @@ export function RequestInputsNode({ id, data , selected}: Props) {
       title="Request-Inputs"
       deletable={false}
       titleSlot={
-        <span title="Define the inputs your workflow accepts" className="text-zinc-300 hover:text-zinc-500">
-          <Info size={13} />
-        </span>
+         <Tooltip text={"Define the inputs your workflow accepts"} />
       }
       headerExtra={<AddFieldButton onAdd={addField} />}
     >
@@ -127,9 +126,9 @@ export function RequestInputsNode({ id, data , selected}: Props) {
               value={field.name}
               onChange={(e) => updateField(field.id, { name: e.target.value })}
             />
-            <span title={FIELD_TOOLTIPS[field.type]} className="shrink-0 text-zinc-300 hover:text-zinc-500">
-              <Info size={12} />
-            </span>
+           
+              <Tooltip text={FIELD_TOOLTIPS[field.type]} />
+
             <button
               className="shrink-0 text-zinc-300 hover:text-zinc-600"
               onClick={() => copyFieldValue(field)}
