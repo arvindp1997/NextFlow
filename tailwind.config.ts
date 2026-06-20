@@ -27,6 +27,8 @@ const config: Config = {
       boxShadow: {
         node: "0 2px 4px rgba(0,0,0,0.04), 0 10px 24px rgba(0,0,0,0.08)",
         "node-selected": "0 0 0 2px #f97316, 0 4px 12px rgba(0,0,0,0.08)",
+            card: "0 8px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03)",
+
       },
       keyframes: {
         "pulse-glow": {

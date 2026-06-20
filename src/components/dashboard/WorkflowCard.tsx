@@ -34,7 +34,7 @@ export function WorkflowCard({
 
   return (
     <div
-      className="group relative w-72 cursor-pointer rounded-2xl border border-border bg-white shadow-node transition-shadow hover:shadow-node-selected"
+      className="group relative w-72 cursor-pointer rounded-2xl border border-border bg-white shadow-card transition-shadow hover:shadow-card-selected"
       onClick={onOpen}
     >
       <div className="overflow-hidden rounded-t-2xl">

@@ -184,7 +184,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
             <h2 className="text-sm font-semibold text-zinc-900">System Workflows</h2>
             <p className="mt-1 text-xs text-zinc-500">Prebuilt workflow templates - click to open and start using.</p>
             <button
-              className="mt-4 w-72 cursor-pointer overflow-hidden rounded-2xl border border-border bg-white text-left shadow-node transition-shadow hover:shadow-node-selected"
+              className="mt-4 w-72 cursor-pointer overflow-hidden rounded-2xl border border-border bg-white text-left shadow-card transition-shadow hover:shadow-card-selected"
               onClick={() => handleOpenTemplate("Product Marketing Pipeline (Sample)")}
             >
               <WorkflowThumbnail />

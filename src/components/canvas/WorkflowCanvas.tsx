@@ -69,7 +69,9 @@ export function WorkflowCanvas() {
   );
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-full" onKeyDown={onKeyDown} tabIndex={0}>
+    <div ref={wrapperRef} className="relative h-full w-full   bg-[#f4f4f4]
+    bg-[radial-gradient(circle,_rgba(0,0,0,0.20)_1.2px,_transparent_1.2px)]
+    bg-[length:34px_34px]" onKeyDown={onKeyDown} tabIndex={0}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

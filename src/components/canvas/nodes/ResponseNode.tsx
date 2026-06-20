@@ -19,7 +19,7 @@ export function ResponseNode({ id, data }: Props) {
   const resultEdges = edges.filter((e) => e.target === id && (e.targetHandle ?? "") === "result");
 
   return (
-    <div className="w-64 rounded-2xl border border-border bg-white shadow-node">
+    <div className="w-64 rounded-2xl border border-border bg-white shadow-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-50 text-indigo-500">
           <CornerDownLeft size={13} />

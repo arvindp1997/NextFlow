@@ -7,7 +7,7 @@ export default function SignInPage() {
         appearance={{
           elements: {
             rootBox: "mx-auto",
-            card: "shadow-node border border-border rounded-2xl",
+            card: "shadow-card border border-border rounded-2xl",
           },
         }}
       />

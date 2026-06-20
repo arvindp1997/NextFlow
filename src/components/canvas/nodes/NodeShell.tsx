@@ -50,7 +50,7 @@ export function NodeShell({
     <div
       className={cn(
         width,
-        "rounded-2xl border bg-white shadow-node transition-shadow",
+        "rounded-2xl border bg-white transition-shadow shadow-card",
         runStatus === "running" ? "border-orange-300 animate-pulse-glow" : "border-border",
         runStatus === "failed" && "border-red-300"
       )}
