@@ -11,7 +11,7 @@ export function Tooltip({ text, className }: TooltipProps) {
     <div className={cn("group relative inline-flex", className)}>
       <Info
         size={11}
-        className="cursor-help text-zinc-300 transition-colors hover:text-zinc-500"
+        className="cursor-help text-zinc-400 transition-colors hover:text-zinc-500"
       />
 
       <div
