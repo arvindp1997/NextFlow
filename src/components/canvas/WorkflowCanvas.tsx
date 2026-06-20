@@ -88,7 +88,8 @@ export function WorkflowCanvas() {
         defaultEdgeOptions={{ animated: true, style: { stroke: "#f97316", strokeWidth: 2 } }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#d4d4d4" />
-        <MiniMap position="bottom-right" pannable zoomable nodeColor="#e5e5e5" maskColor="rgba(250,250,250,0.7)" />
+        <MiniMap position="bottom-right" pannable zoomable bgColor="rgb(27, 27, 24)"
+                nodeColor="rgb(167, 139, 250)" maskColor="rgba(27, 27, 24, 0.3)" />
         <Controls position="bottom-left" showInteractive={false} />
       </ReactFlow>
 
