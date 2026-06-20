@@ -23,7 +23,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className={cn("flex flex-col border-r border-border bg-white py-5 transition-all", collapsed ? "w-16 px-2" : "w-60 px-4")}>
+    <aside className={cn("flex flex-col border-r border-border bg-gray-200 py-5 transition-all", collapsed ? "w-16 px-2" : "w-60 px-4")}>
       <div className={cn("mb-8 flex items-center px-2", collapsed ? "flex-col gap-3" : "justify-between gap-2")}>
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white">
@@ -45,7 +45,7 @@ export function Sidebar() {
         <a
           href="/dashboard"
           className={cn(
-            "flex items-center gap-2.5 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900",
+            "flex items-center gap-2.5 rounded-lg bg-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900",
             collapsed && "justify-center px-0"
           )}
           title="Flow"
