@@ -151,10 +151,10 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     : workflows;
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex h-screen overflow-hidden bg-canvas">
       <Sidebar />
-      <main className="flex-1 px-8 py-8">
-        <div className="mx-auto pl-4 pr-4">
+      <main className="flex-1 overflow-y-auto px-8 py-8">
+        <div className="mx-auto  pl-4 pr-4">
           <div className="mb-8 flex items-start justify-between">
             <div>
               <h1 className="text-xl font-semibold text-zinc-900">Flow</h1>
