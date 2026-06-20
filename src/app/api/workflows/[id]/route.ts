@@ -53,8 +53,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id },
       data: {
         ...(parsed.data.name ? { name: parsed.data.name } : {}),
-        nodes: parsed.data.nodes,
-        edges: parsed.data.edges,
+        nodes: parsed.data.nodes as object,
+        edges: parsed.data.edges as object,
         lastEditedAt: new Date(),
       },
     });
