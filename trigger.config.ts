@@ -1,5 +1,6 @@
 import { defineConfig } from "@trigger.dev/sdk/v3";
 import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
+import { ffmpeg } from "@trigger.dev/build/extensions/core";
 
 export default defineConfig({
   project: process.env.TRIGGER_PROJECT_ID ?? "proj_fesycxsknmzsdljllfcu",
@@ -18,6 +19,15 @@ export default defineConfig({
         schema: "prisma/schema.prisma",
         clientGenerator: "client", // matches `generator client { ... }` in schema.prisma
       }),
+      // @ffmpeg-installer/ffmpeg and @ffprobe-installer/ffprobe bundle
+      // platform-specific binaries the same way Prisma's query engine does —
+      // and they hit the same problem: esbuild only bundles JS, so the
+      // actual binary never makes it into the deployed artifact regardless
+      // of which platform's optional dependency npm resolved locally. This
+      // installs ffmpeg/ffprobe as real Debian packages on the deployed
+      // image instead, and sets FFMPEG_PATH/FFPROBE_PATH for the task code
+      // to use directly (see src/trigger/cropImage.ts).
+      ffmpeg(),
     ],
   },
 });

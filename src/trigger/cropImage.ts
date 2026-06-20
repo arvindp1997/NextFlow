@@ -46,14 +46,21 @@ async function performCrop(input: CropImagePayload): Promise<string> {
   const ffmpeg = (await import("fluent-ffmpeg")).default;
 
   // fluent-ffmpeg is just a wrapper around the ffmpeg/ffprobe CLI binaries —
-  // it doesn't bundle them. Point it at the static binaries from the
-  // installer packages instead of relying on them being present on the
-  // system PATH (a very common "Cannot find ffprobe" failure otherwise,
-  // especially on Windows).
-  const ffmpegInstaller = (await import("@ffmpeg-installer/ffmpeg")).default;
-  const ffprobeInstaller = (await import("@ffprobe-installer/ffprobe")).default;
-  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-  ffmpeg.setFfprobePath(ffprobeInstaller.path);
+  // it doesn't bundle them. On Trigger.dev's cloud runners, the ffmpeg()
+  // build extension installs real Debian packages and sets these env vars;
+  // it deliberately doesn't apply to local `trigger:dev` runs, so we fall
+  // back to the npm installer packages there (this is also why those
+  // packages are still a dependency at all — they're dev-only at this point).
+  let ffmpegPath = process.env.FFMPEG_PATH;
+  let ffprobePath = process.env.FFPROBE_PATH;
+  if (!ffmpegPath || !ffprobePath) {
+    const ffmpegInstaller = (await import("@ffmpeg-installer/ffmpeg")).default;
+    const ffprobeInstaller = (await import("@ffprobe-installer/ffprobe")).default;
+    ffmpegPath ??= ffmpegInstaller.path;
+    ffprobePath ??= ffprobeInstaller.path;
+  }
+  ffmpeg.setFfmpegPath(ffmpegPath);
+  ffmpeg.setFfprobePath(ffprobePath);
 
   const res = await fetch(input.inputImageUrl);
   if (!res.ok) throw new Error(`Could not download input image: ${input.inputImageUrl}`);
