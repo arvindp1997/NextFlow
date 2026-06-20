@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useReactFlow, useViewport } from "@xyflow/react";
-import { Undo2, Redo2, Command, Minus, Plus as PlusIcon, Maximize2, LayoutGrid, Move } from "lucide-react";
+import { Undo2, Redo2, Command, LayoutGrid, Move, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { Tooltip } from "./Tooltip"; 
 import { cn } from "@/lib/utils";
@@ -47,9 +47,9 @@ export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { select
         )}
       </div>
       <Divider />
-      <ToolbarButton onClick={() => zoomOut()} icon={<Minus size={15} />} label="Zoom out" />
+      <ToolbarButton onClick={() => zoomOut()} icon={<ZoomOut size={15} />} label="Zoom out" />
       <span className="w-10 select-none text-center text-[11px] font-medium text-zinc-500">{Math.round(zoom * 100)}%</span>
-      <ToolbarButton onClick={() => zoomIn()} icon={<PlusIcon size={15} />} label="Zoom in" />
+      <ToolbarButton onClick={() => zoomIn()} icon={<ZoomIn size={15} />} label="Zoom in" />
       <ToolbarButton onClick={() => fitView({ duration: 200 })} icon={<Maximize2 size={15} />} label="Fit view" />
       <Divider />
       {/* Superseded by the standalone minimap toggle button next to the
