@@ -132,5 +132,5 @@ export function buildSampleWorkflow() {
 }
 
 function edge(id: string, source: string, sourceHandle: string, target: string, targetHandle: string) {
-  return { id, source, sourceHandle, target, targetHandle, animated: true };
+  return { id, source, sourceHandle, target, targetHandle, animated: false };
 }

@@ -103,7 +103,7 @@ export type HandleDataType = "text" | "image" | "video" | "audio" | "file" | "an
 
 export const HANDLE_COLORS: Record<HandleDataType, string> = {
   text: "#f97316",
-  image: "#3b82f6",
+  image: "#8b5cf6",
   video: "#22c55e",
   audio: "#06b6d4",
   file: "#a855f7",
@@ -116,7 +116,7 @@ export const HANDLE_COLORS: Record<HandleDataType, string> = {
 // Video green, Audio cyan).
 export const HANDLE_TEXT_COLOR_CLASS: Record<HandleDataType, string> = {
   text: "text-orange-500",
-  image: "text-blue-500",
+  image: "text-violet-500",
   video: "text-green-500",
   audio: "text-cyan-500",
   file: "text-purple-500",

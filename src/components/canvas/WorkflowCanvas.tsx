@@ -16,12 +16,17 @@ import { ResponseNode } from "@/components/canvas/nodes/ResponseNode";
 import { CropImageNode } from "@/components/canvas/nodes/CropImageNode";
 import { GeminiNode } from "@/components/canvas/nodes/GeminiNode";
 import { NodePicker } from "@/components/canvas/NodePicker";
+import { TypedEdge } from "@/components/canvas/TypedEdge";
 
 const nodeTypes = {
   "request-inputs": RequestInputsNode,
   response: ResponseNode,
   "crop-image": CropImageNode,
   gemini: GeminiNode,
+};
+
+const edgeTypes = {
+  default: TypedEdge,
 };
 
 export function WorkflowCanvas() {
@@ -69,9 +74,7 @@ export function WorkflowCanvas() {
   );
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-full   bg-[#f4f4f4]
-    bg-[radial-gradient(circle,_rgba(0,0,0,0.20)_1.2px,_transparent_1.2px)]
-    bg-[length:34px_34px]" onKeyDown={onKeyDown} tabIndex={0}>
+    <div ref={wrapperRef} className="relative h-full w-full" onKeyDown={onKeyDown} tabIndex={0}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -80,15 +83,16 @@ export function WorkflowCanvas() {
         onConnect={onConnect}
         onSelectionChange={onSelectionChange}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         minZoom={0.2}
         maxZoom={1.5}
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
-        defaultEdgeOptions={{ animated: true, style: { stroke: "#f97316", strokeWidth: 2 } }}
+        defaultEdgeOptions={{ animated: false }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#d4d4d4" />
-        <MiniMap position="bottom-right" pannable zoomable bgColor="rgb(27, 27, 24)"
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#c4c4c7" />
+          <MiniMap position="bottom-right" pannable zoomable bgColor="rgb(27, 27, 24)"
                 nodeColor="rgb(167, 139, 250)" maskColor="rgba(27, 27, 24, 0.3)" />
         <Controls position="bottom-left" showInteractive={false} />
       </ReactFlow>

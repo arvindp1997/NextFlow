@@ -50,21 +50,23 @@ body {
   stroke-width: 2;
 }
 
+/* Force solid edges even for workflows saved before edges stopped being
+   animated by default — otherwise their stored data still has animated:true
+   and React Flow's own built-in CSS would keep dashing them. */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: none !important;
+  animation: none !important;
+}
+
+/* !important here is deliberate: @xyflow/react/dist/style.css is imported
+   from WorkflowCanvas.tsx (a leaf component), which Next.js injects into the
+   page after this file (imported from the root layout). Same-specificity
+   rules later in the cascade win, so without !important React Flow's own
+   default .react-flow__handle size was silently overriding this. */
 .react-flow__handle {
-  width: 9px;
-  height: 9px;
-  border: 2px solid white;
-}
-
-@keyframes nf-dash {
-  to {
-    stroke-dashoffset: -16;
-  }
-}
-
-.nf-edge-animated path {
-  stroke-dasharray: 6 4;
-  animation: nf-dash 0.6s linear infinite;
+  width: 14px !important;
+  height: 14px !important;
+  border: 2.5px solid white !important;
 }
 
 ::-webkit-scrollbar {

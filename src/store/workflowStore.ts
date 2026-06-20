@@ -117,7 +117,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (!isValidConnection(connection, get().nodes)) return;
     pushHistory(get, set);
     set({
-      edges: addEdge({ ...connection, animated: true }, get().edges),
+      edges: addEdge({ ...connection, animated: false }, get().edges),
       dirty: true,
     });
   },
