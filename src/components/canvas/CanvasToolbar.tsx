@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useReactFlow, useViewport } from "@xyflow/react";
 import { Undo2, Redo2, Command, Minus, Plus as PlusIcon, Maximize2, LayoutGrid, Move } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
+import { Tooltip } from "./Tooltip"; 
 import { cn } from "@/lib/utils";
 
 /**
@@ -74,18 +75,19 @@ function ToolbarButton({
   disabled?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-        disabled ? "cursor-not-allowed text-zinc-300" : active ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-      )}
-    >
-      {icon}
-    </button>
+    <Tooltip label={label}>
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+          disabled ? "cursor-not-allowed text-zinc-300" : active ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+        )}
+      >
+        {icon}
+      </button>
+    </Tooltip>
   );
 }
 

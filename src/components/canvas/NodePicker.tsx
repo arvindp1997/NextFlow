@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Search, Crop, Sparkles, Clock, ImageIcon, Video, AudioLines, FolderClosed } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
+import { Tooltip } from "./Tooltip"; 
 import { cn } from "@/lib/utils";
 
 type Category = "Recent" | "Image" | "Video" | "Audio" | "Others";
@@ -110,14 +111,15 @@ export function NodePicker({ getDropPosition }: { getDropPosition: () => { x: nu
         </div>
       )}
 
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-        aria-label="Add node"
-        title="Add node"
-      >
-        <Plus size={16} />
-      </button>
+      <Tooltip label="Add node">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+          aria-label="Add node"
+        >
+          <Plus size={16} />
+        </button>
+      </Tooltip>
     </div>
   );
 }

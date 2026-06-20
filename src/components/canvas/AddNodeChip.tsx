@@ -2,6 +2,7 @@
 
 import { Copy } from "lucide-react";
 import { NodePicker } from "@/components/canvas/NodePicker";
+import { Tooltip } from "./Tooltip";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { cn } from "@/lib/utils";
 
@@ -12,21 +13,22 @@ export function AddNodeChip({ getDropPosition }: { getDropPosition: () => { x: n
 
   return (
     <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-border bg-white px-1.5 py-1.5 shadow-lg">
-      <button
-        onClick={() => {
-          const targetId = selectedNodeIds[0];
-          if (canDuplicate && targetId) duplicateNode(targetId);
-        }}
-        disabled={!canDuplicate}
-        aria-label="Duplicate selected node"
-        title="Duplicate selected node"
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-          canDuplicate ? "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700" : "cursor-not-allowed text-zinc-300"
-        )}
-      >
-        <Copy size={15} />
-      </button>
+      <Tooltip label="Duplicate selected node">
+        <button
+          onClick={() => {
+            const targetId = selectedNodeIds[0];
+            if (canDuplicate && targetId) duplicateNode(targetId);
+          }}
+          disabled={!canDuplicate}
+          aria-label="Duplicate selected node"
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+            canDuplicate ? "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700" : "cursor-not-allowed text-zinc-300"
+          )}
+        >
+          <Copy size={15} />
+        </button>
+      </Tooltip>
       <NodePicker getDropPosition={getDropPosition} />
     </div>
   );

@@ -16,6 +16,7 @@ import { WorkflowCanvas } from "@/components/canvas/WorkflowCanvas";
 import { HistoryPanel, type RunRecord } from "@/components/canvas/HistoryPanel";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/Button";
+import { Tooltip } from "./Tooltip"; 
 import { cn } from "@/lib/utils";
 import { useWorkflowStore, type FlowNode, type FlowEdge } from "@/store/workflowStore";
 import { useRunRequestStore } from "@/store/runRequestStore";
@@ -175,25 +176,27 @@ export function WorkflowClient({
               <Play size={13} /> Run Selected ({selectedCount})
             </Button>
           )}
-          <button
-            onClick={() => runWorkflow("full")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
-            aria-label="Run workflow"
-            title="Run workflow"
-          >
-            <Play size={14} fill="currentColor" />
-          </button>
-          <button
-            onClick={() => setHistoryOpen((v) => !v)}
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-md bg-white border border-border",
-              historyOpen ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-700"
-            )}
-            aria-label="Run history"
-            title="Run history"
-          >
-            <History size={14} />
-          </button>
+          <Tooltip label="Run workflow" side="bottom">
+            <button
+              onClick={() => runWorkflow("full")}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+              aria-label="Run workflow"
+            >
+              <Play size={14} fill="currentColor" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Run history" side="bottom">
+            <button
+              onClick={() => setHistoryOpen((v) => !v)}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full border border-border",
+                historyOpen ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+              )}
+              aria-label="Run history"
+            >
+              <History size={14} />
+            </button>
+          </Tooltip>
         </div>
       </header>
 

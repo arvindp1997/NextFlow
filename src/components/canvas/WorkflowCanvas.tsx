@@ -18,6 +18,7 @@ import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { AddNodeChip } from "@/components/canvas/AddNodeChip";
 import { TypedEdge } from "@/components/canvas/TypedEdge";
 import { Map as MapIcon } from "lucide-react";
+import { Tooltip } from "./Tooltip";
 import { cn } from "@/lib/utils";
 
 const nodeTypes = {
@@ -109,17 +110,17 @@ export function WorkflowCanvas() {
           slot already, so a literal overlap would obscure both); when
           closed, this drops down into the minimap's own spot as the way to
           bring it back. */}
-      <button
-        onClick={() => setMinimapVisible((v) => !v)}
-        aria-label={minimapVisible ? "Hide minimap" : "Show minimap"}
-        title={minimapVisible ? "Hide minimap" : "Show minimap"}
-        className={cn(
-          "absolute right-4 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-zinc-500 shadow-lg transition-all hover:bg-zinc-50 hover:text-zinc-700",
-          minimapVisible ? "bottom-[180px]" : "bottom-4"
-        )}
-      >
-        <MapIcon size={16} />
-      </button>
+      <div className={cn("absolute right-8 z-20", minimapVisible ? "bottom-[180px]" : "bottom-4")}>
+        <Tooltip label={minimapVisible ? "Hide minimap" : "Show minimap"}>
+          <button
+            onClick={() => setMinimapVisible((v) => !v)}
+            aria-label={minimapVisible ? "Hide minimap" : "Show minimap"}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-zinc-500 shadow-lg transition-all hover:bg-zinc-50 hover:text-zinc-700"
+          >
+            <MapIcon size={16} />
+          </button>
+        </Tooltip>
+      </div>
     </div>
   );
 }
