@@ -6,7 +6,7 @@ import { Plus, Upload, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
-import { WorkflowThumbnail } from "./WorkflowThumbnail";
+import { WorkflowThumbnail } from "@/components/dashboard/WorkflowThumbnail";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { CreateWorkflowDialog } from "@/components/dashboard/CreateWorkflowDialog";
 import { RenameDialog } from "@/components/dashboard/RenameDialog";
@@ -24,11 +24,30 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
   const [importError, setImportError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleCreate(name: string, template: "blank" | "sample" = "blank") {
+  async function handleCreate(name: string) {
     const res = await fetch("/api/workflows", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, template }),
+      body: JSON.stringify({ name, template: "blank" }),
+    });
+    if (!res.ok) return;
+    const { workflow } = await res.json();
+    setWorkflows((prev) => [
+      { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
+      ...prev,
+    ]);
+    router.refresh();
+    setCreating(false);
+  }
+
+  // Separate from handleCreate: opening a System Workflow template is meant
+  // to jump straight into the canvas ("click to open and start using"),
+  // unlike the "+" button which should just add a card and stay put.
+  async function handleOpenTemplate(name: string) {
+    const res = await fetch("/api/workflows", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, template: "sample" }),
     });
     if (!res.ok) return;
     const { workflow } = await res.json();
@@ -135,7 +154,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     <div className="flex min-h-screen bg-canvas">
       <Sidebar />
       <main className="flex-1 px-8 py-8">
-        <div className="mx-auto max-w-8xl">
+        <div className="mx-auto pl-4 pr-4">
           <div className="mb-8 flex items-start justify-between">
             <div>
               <h1 className="text-xl font-semibold text-zinc-900">Flow</h1>
@@ -166,7 +185,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
             <p className="mt-1 text-xs text-zinc-500">Prebuilt workflow templates - click to open and start using.</p>
             <button
               className="mt-4 w-72 cursor-pointer overflow-hidden rounded-2xl border border-border bg-white text-left shadow-node transition-shadow hover:shadow-node-selected"
-              onClick={() => handleCreate("Product Marketing Pipeline (Sample)", "sample")}
+              onClick={() => handleOpenTemplate("Product Marketing Pipeline (Sample)")}
             >
               <WorkflowThumbnail />
               <div className="border-t border-border px-3 py-2.5">
