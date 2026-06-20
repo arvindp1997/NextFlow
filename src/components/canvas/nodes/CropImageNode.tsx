@@ -55,7 +55,7 @@ export function CropImageNode({ id, data, selected }: Props) {
     >
       <div className="relative">
         <Handle id="input_image" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -7 }} />
-        <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-blue-600">
+        <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-zinc-500">
           Input Image <span className="text-red-500">*</span>
         </label>
         <label

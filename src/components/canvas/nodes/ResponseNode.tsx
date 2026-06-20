@@ -32,7 +32,7 @@ export function ResponseNode({ id, data, selected }: Props) {
       <div className="space-y-2.5 px-3 py-3">
         <div className="relative flex items-center gap-1.5">
           <Handle id="result" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.any, left: -7 }} />
-          <span className="text-[12px] font-medium text-indigo-500">result</span>
+          <span className="text-[12px] font-medium text-black/70">result</span>
         </div>
 
         {resultEdges.length === 0 && <p className="text-xs text-zinc-400">No connections yet</p>}

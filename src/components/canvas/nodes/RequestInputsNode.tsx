@@ -122,7 +122,7 @@ export function RequestInputsNode({ id, data , selected}: Props) {
           <div className="mb-1.5 flex items-center gap-1.5">
             <GripVertical size={13} className="shrink-0 cursor-grab text-zinc-300" />
             <input
-              className="min-w-0 flex-1 truncate bg-transparent text-[12px] font-medium text-blue-600 outline-none"
+              className="min-w-0 flex-1 truncate bg-transparent text-[12px] font-medium text-black outline-none"
               value={field.name}
               onChange={(e) => updateField(field.id, { name: e.target.value })}
             />
