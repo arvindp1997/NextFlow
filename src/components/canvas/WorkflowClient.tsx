@@ -6,15 +6,17 @@ import { ReactFlowProvider } from "@xyflow/react";
 import {
   ArrowLeft,
   Play,
-  Undo2,
-  Redo2,
   Loader2,
   CheckCircle2,
+  History,
+  Calculator,
+  Wallet,
 } from "lucide-react";
 import { WorkflowCanvas } from "@/components/canvas/WorkflowCanvas";
 import { HistoryPanel, type RunRecord } from "@/components/canvas/HistoryPanel";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 import { useWorkflowStore, type FlowNode, type FlowEdge } from "@/store/workflowStore";
 import { useRunRequestStore } from "@/store/runRequestStore";
 
@@ -32,6 +34,7 @@ export function WorkflowClient({
   const store = useWorkflowStore();
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [nameInput, setNameInput] = useState(name);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,47 +133,77 @@ export function WorkflowClient({
     <div className="flex h-screen">
       <Sidebar defaultCollapsed persist={false} />
       <div className="flex h-screen flex-1 flex-col bg-canvas">
-      <header className="flex items-center justify-between border-b border-border bg-white px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <Link href="/dashboard" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100">
-            <ArrowLeft size={16} />
-          </Link>
-          <input
-            className="min-w-0 max-w-xs truncate rounded-md px-1.5 py-1 text-sm font-medium text-zinc-900 outline-none hover:bg-zinc-50 focus:bg-zinc-50"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onBlur={handleRenameBlur}
-          />
-          <SaveIndicator state={saveState} />
-        </div>
+      <header className="flex items-center justify-between px-4 py-2.5">
+       <div className="inline-flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+  <Link
+    href="/dashboard"
+    className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
+  >
+    <ArrowLeft size={18} />
+  </Link>
+
+  <input
+    className="
+      min-w-0
+      max-w-xs
+      bg-transparent
+      text-sm
+      font-medium
+      text-zinc-800
+      outline-none
+      placeholder:text-zinc-400
+    "
+    value={nameInput}
+    onChange={(e) => setNameInput(e.target.value)}
+    onBlur={handleRenameBlur}
+  />
+
+  <SaveIndicator state={saveState} />
+</div>
 
         <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" onClick={() => store.undo()} aria-label="Undo">
-            <Undo2 size={14} />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => store.redo()} aria-label="Redo">
-            <Redo2 size={14} />
-          </Button>
+          {/* Decorative, like the per-node cost indicators elsewhere — there's no
+              real token/billing tracking anywhere in the app. */}
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-500">
+            <Calculator size={12} /> Est <span className="text-zinc-700">0.01 M</span>
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-500">
+            <Wallet size={12} /> Bal <span className="text-zinc-700">0.00 M</span>
+          </div>
           {selectedCount > 1 && (
             <Button size="sm" onClick={() => runWorkflow("partial", store.selectedNodeIds)}>
               <Play size={13} /> Run Selected ({selectedCount})
             </Button>
           )}
-          <Button size="sm" onClick={() => runWorkflow("full")}>
-            <Play size={13} /> Run Workflow
-          </Button>
+          <button
+            onClick={() => runWorkflow("full")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+            aria-label="Run workflow"
+            title="Run workflow"
+          >
+            <Play size={14} fill="currentColor" />
+          </button>
+          <button
+            onClick={() => setHistoryOpen((v) => !v)}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-md bg-white border border-border",
+              historyOpen ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-700"
+            )}
+            aria-label="Run history"
+            title="Run history"
+          >
+            <History size={14} />
+          </button>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1">
-          <ReactFlowProvider>
-            <WorkflowCanvas />
-          </ReactFlowProvider>
-        </div>
-        <HistoryPanel runs={runs} loading={historyLoading} onCancel={cancelRun} />
+      <div className="flex-1 overflow-hidden">
+        <ReactFlowProvider>
+          <WorkflowCanvas />
+        </ReactFlowProvider>
       </div>
       </div>
+      {historyOpen && <HistoryPanel runs={runs} loading={historyLoading} onCancel={cancelRun} onClose={() => setHistoryOpen(false)} />}
     </div>
   );
 }

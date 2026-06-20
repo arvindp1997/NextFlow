@@ -46,6 +46,7 @@ interface WorkflowState {
   addNode: (type: "crop-image" | "gemini", position: { x: number; y: number }) => void;
   updateNodeData: (nodeId: string, patch: Partial<NextFlowNodeData>) => void;
   deleteNode: (nodeId: string) => void;
+  duplicateNode: (nodeId: string) => void;
   deleteSelected: () => void;
   setSelected: (ids: string[]) => void;
   undo: () => void;
@@ -171,6 +172,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
       dirty: true,
     });
+  },
+
+  duplicateNode: (nodeId) => {
+    const node = get().nodes.find((n) => n.id === nodeId);
+    if (!node || NON_DELETABLE.includes(node.data.kind)) return;
+    pushHistory(get, set);
+    const id = uid(node.data.kind);
+    const clone: FlowNode = {
+      ...node,
+      id,
+      position: { x: node.position.x + 32, y: node.position.y + 32 },
+      data: { ...node.data },
+      selected: false,
+    };
+    set({ nodes: [...get().nodes, clone], selectedNodeIds: [id], dirty: true });
   },
 
   deleteSelected: () => {

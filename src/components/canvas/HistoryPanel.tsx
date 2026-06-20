@@ -34,18 +34,25 @@ export function HistoryPanel({
   runs,
   loading,
   onCancel,
+  onClose,
 }: {
   runs: RunRecord[];
   loading: boolean;
   onCancel: (runId: string) => void;
+  onClose: () => void;
 }) {
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-white">
-      <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-zinc-900">History</h2>
-        <p className="text-xs text-zinc-400">All runs for this workflow</p>
+    <aside className="flex h-screen w-80 shrink-0 flex-col border-l border-border bg-white">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-900">Execution History</h2>
+          <p className="text-xs text-zinc-400">All runs for this workflow</p>
+        </div>
+        <button onClick={onClose} className="text-xs font-medium text-zinc-500 hover:text-zinc-800">
+          Close
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2">

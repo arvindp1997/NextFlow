@@ -56,9 +56,9 @@ export function NodePicker({ getDropPosition }: { getDropPosition: () => { x: nu
   }
 
   return (
-    <div ref={ref} className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2">
+    <div ref={ref} className="relative">
       {open && (
-        <div className="absolute bottom-14 left-1/2 w-72 -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
+        <div className="absolute bottom-12 left-1/2 z-20 w-72 -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <Search size={14} className="text-zinc-400" />
             <input
@@ -112,10 +112,11 @@ export function NodePicker({ getDropPosition }: { getDropPosition: () => { x: nu
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
         aria-label="Add node"
+        title="Add node"
       >
-        <Plus size={20} />
+        <Plus size={16} />
       </button>
     </div>
   );

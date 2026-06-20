@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
   MiniMap,
-  Controls,
   type OnSelectionChangeParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -15,7 +14,7 @@ import { RequestInputsNode } from "@/components/canvas/nodes/RequestInputsNode";
 import { ResponseNode } from "@/components/canvas/nodes/ResponseNode";
 import { CropImageNode } from "@/components/canvas/nodes/CropImageNode";
 import { GeminiNode } from "@/components/canvas/nodes/GeminiNode";
-import { NodePicker } from "@/components/canvas/NodePicker";
+import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { TypedEdge } from "@/components/canvas/TypedEdge";
 
 const nodeTypes = {
@@ -41,6 +40,8 @@ export function WorkflowCanvas() {
   const redo = useWorkflowStore((s) => s.redo);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [minimapVisible, setMinimapVisible] = useState(true);
+  const [selectionMode, setSelectionMode] = useState(false);
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: OnSelectionChangeParams) => setSelected(selected.map((n) => n.id)),
@@ -90,14 +91,20 @@ export function WorkflowCanvas() {
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ animated: false }}
+        selectionOnDrag={selectionMode}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#c4c4c7" />
-          <MiniMap position="bottom-right" pannable zoomable bgColor="rgb(27, 27, 24)"
-                nodeColor="rgb(167, 139, 250)" maskColor="rgba(27, 27, 24, 0.3)" />
-        <Controls position="bottom-left" showInteractive={false} />
+        {minimapVisible && <MiniMap position="bottom-right" pannable zoomable bgColor="rgb(27, 27, 24)"
+                nodeColor="rgb(167, 139, 250)" maskColor="rgba(27, 27, 24, 0.3)" />}
       </ReactFlow>
 
-      <NodePicker getDropPosition={dropPosition} />
+      <CanvasToolbar
+        getDropPosition={dropPosition}
+        minimapVisible={minimapVisible}
+        onToggleMinimap={() => setMinimapVisible((v) => !v)}
+        selectionMode={selectionMode}
+        onToggleSelectionMode={() => setSelectionMode((v) => !v)}
+      />
     </div>
   );
 }
