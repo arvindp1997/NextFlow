@@ -15,7 +15,10 @@ import { ResponseNode } from "@/components/canvas/nodes/ResponseNode";
 import { CropImageNode } from "@/components/canvas/nodes/CropImageNode";
 import { GeminiNode } from "@/components/canvas/nodes/GeminiNode";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
+import { AddNodeChip } from "@/components/canvas/AddNodeChip";
 import { TypedEdge } from "@/components/canvas/TypedEdge";
+import { Map as MapIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const nodeTypes = {
   "request-inputs": RequestInputsNode,
@@ -98,13 +101,25 @@ export function WorkflowCanvas() {
                 nodeColor="rgb(167, 139, 250)" maskColor="rgba(27, 27, 24, 0.3)" />}
       </ReactFlow>
 
-      <CanvasToolbar
-        getDropPosition={dropPosition}
-        minimapVisible={minimapVisible}
-        onToggleMinimap={() => setMinimapVisible((v) => !v)}
-        selectionMode={selectionMode}
-        onToggleSelectionMode={() => setSelectionMode((v) => !v)}
-      />
+      <CanvasToolbar selectionMode={selectionMode} onToggleSelectionMode={() => setSelectionMode((v) => !v)} />
+      <AddNodeChip getDropPosition={dropPosition} />
+
+      {/* Sits at the same corner as the minimap, per the reference. When the
+          minimap is open this floats just above it (it occupies the bottom
+          slot already, so a literal overlap would obscure both); when
+          closed, this drops down into the minimap's own spot as the way to
+          bring it back. */}
+      <button
+        onClick={() => setMinimapVisible((v) => !v)}
+        aria-label={minimapVisible ? "Hide minimap" : "Show minimap"}
+        title={minimapVisible ? "Hide minimap" : "Show minimap"}
+        className={cn(
+          "absolute right-4 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-zinc-500 shadow-lg transition-all hover:bg-zinc-50 hover:text-zinc-700",
+          minimapVisible ? "bottom-[180px]" : "bottom-4"
+        )}
+      >
+        <MapIcon size={16} />
+      </button>
     </div>
   );
 }

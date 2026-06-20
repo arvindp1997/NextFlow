@@ -2,30 +2,22 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useReactFlow, useViewport } from "@xyflow/react";
-import { Undo2, Redo2, Command, Minus, Plus as PlusIcon, Maximize2, LayoutGrid, Move, Copy } from "lucide-react";
-import { NodePicker } from "@/components/canvas/NodePicker";
+import { Undo2, Redo2, Command, Minus, Plus as PlusIcon, Maximize2, LayoutGrid, Move } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { cn } from "@/lib/utils";
 
-export function CanvasToolbar({
-  getDropPosition,
-  minimapVisible,
-  onToggleMinimap,
-  selectionMode,
-  onToggleSelectionMode,
-}: {
-  getDropPosition: () => { x: number; y: number };
-  minimapVisible: boolean;
-  onToggleMinimap: () => void;
-  selectionMode: boolean;
-  onToggleSelectionMode: () => void;
-}) {
+/**
+ * Bottom-left zoom/history controls pill. The "add node" chip and the
+ * minimap toggle are separate, independently-positioned pieces — see
+ * AddNodeChip and the minimap toggle button rendered directly in
+ * WorkflowCanvas.tsx — matching the reference's three-piece bottom layout
+ * rather than one combined toolbar.
+ */
+export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { selectionMode: boolean; onToggleSelectionMode: () => void }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
-  const duplicateNode = useWorkflowStore((s) => s.duplicateNode);
-  const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const shortcutsRef = useRef<HTMLDivElement>(null);
 
@@ -37,47 +29,33 @@ export function CanvasToolbar({
     return () => document.removeEventListener("mousedown", onClickAway);
   }, []);
 
-  const canDuplicate = selectedNodeIds.length === 1;
-
   return (
-    <div className="absolute bottom-6 left-6 z-20 flex items-end gap-2">
-      <div className="flex items-center gap-0.5 rounded-full border border-border bg-white px-1.5 py-1.5 shadow-lg">
-        <ToolbarButton onClick={undo} icon={<Undo2 size={15} />} label="Undo" />
-        <ToolbarButton onClick={redo} icon={<Redo2 size={15} />} label="Redo" />
-        <Divider />
-        <div className="relative" ref={shortcutsRef}>
-          <ToolbarButton onClick={() => setShortcutsOpen((v) => !v)} icon={<Command size={15} />} label="Keyboard shortcuts" active={shortcutsOpen} />
-          {shortcutsOpen && (
-            <div className="absolute bottom-11 left-0 w-56 rounded-xl border border-border bg-white p-3 text-xs shadow-xl">
-              <p className="mb-2 font-semibold text-zinc-700">Keyboard shortcuts</p>
-              <ShortcutRow keys="⌘ Z" label="Undo" />
-              <ShortcutRow keys="⌘ ⇧ Z" label="Redo" />
-              <ShortcutRow keys="Delete" label="Delete selection" />
-            </div>
-          )}
-        </div>
-        <Divider />
-        <ToolbarButton onClick={() => zoomOut()} icon={<Minus size={15} />} label="Zoom out" />
-        <span className="w-10 select-none text-center text-[11px] font-medium text-zinc-500">{Math.round(zoom * 100)}%</span>
-        <ToolbarButton onClick={() => zoomIn()} icon={<PlusIcon size={15} />} label="Zoom in" />
-        <ToolbarButton onClick={() => fitView({ duration: 200 })} icon={<Maximize2 size={15} />} label="Fit view" />
-        <Divider />
-        <ToolbarButton onClick={onToggleMinimap} icon={<LayoutGrid size={15} />} label="Toggle minimap" active={minimapVisible} />
-        <ToolbarButton onClick={onToggleSelectionMode} icon={<Move size={15} />} label="Selection mode (drag to multi-select)" active={selectionMode} />
+    <div className="absolute bottom-6 left-6 z-20 flex items-center gap-0.5 rounded-xl border border-border bg-white px-1.5 py-1.5 shadow-lg">
+      <ToolbarButton onClick={undo} icon={<Undo2 size={15} />} label="Undo" />
+      <ToolbarButton onClick={redo} icon={<Redo2 size={15} />} label="Redo" />
+      <Divider />
+      <div className="relative" ref={shortcutsRef}>
+        <ToolbarButton onClick={() => setShortcutsOpen((v) => !v)} icon={<Command size={15} />} label="Keyboard shortcuts" active={shortcutsOpen} />
+        {shortcutsOpen && (
+          <div className="absolute bottom-11 left-0 w-56 rounded-xl border border-border bg-white p-3 text-xs shadow-xl">
+            <p className="mb-2 font-semibold text-zinc-700">Keyboard shortcuts</p>
+            <ShortcutRow keys="⌘ Z" label="Undo" />
+            <ShortcutRow keys="⌘ ⇧ Z" label="Redo" />
+            <ShortcutRow keys="Delete" label="Delete selection" />
+          </div>
+        )}
       </div>
-
-      <div className="flex items-center gap-0.5 rounded-full border border-border bg-white px-1.5 py-1.5 shadow-lg">
-        <ToolbarButton
-          onClick={() => {
-            const targetId = selectedNodeIds[0];
-            if (canDuplicate && targetId) duplicateNode(targetId);
-          }}
-          icon={<Copy size={15} />}
-          label="Duplicate selected node"
-          disabled={!canDuplicate}
-        />
-        <NodePicker getDropPosition={getDropPosition} />
-      </div>
+      <Divider />
+      <ToolbarButton onClick={() => zoomOut()} icon={<Minus size={15} />} label="Zoom out" />
+      <span className="w-10 select-none text-center text-[11px] font-medium text-zinc-500">{Math.round(zoom * 100)}%</span>
+      <ToolbarButton onClick={() => zoomIn()} icon={<PlusIcon size={15} />} label="Zoom in" />
+      <ToolbarButton onClick={() => fitView({ duration: 200 })} icon={<Maximize2 size={15} />} label="Fit view" />
+      <Divider />
+      {/* Superseded by the standalone minimap toggle button next to the
+          minimap itself (bottom-right) — kept here, disabled, rather than
+          removed, per instruction. */}
+      <ToolbarButton onClick={() => {}} icon={<LayoutGrid size={15} />} label="Minimap toggle moved to bottom-right" disabled />
+      <ToolbarButton onClick={onToggleSelectionMode} icon={<Move size={15} />} label="Selection mode (drag to multi-select)" active={selectionMode} />
     </div>
   );
 }

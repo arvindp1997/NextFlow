@@ -134,7 +134,7 @@ export function WorkflowClient({
       <Sidebar defaultCollapsed persist={false} />
       <div className="flex h-screen flex-1 flex-col bg-canvas">
       <header className="flex items-center justify-between px-4 py-2.5">
-       <div className="inline-flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+       <div className="inline-flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
   <Link
     href="/dashboard"
     className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
