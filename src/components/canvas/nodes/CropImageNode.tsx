@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { ImageIcon, Loader2, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { NodeShell, CostIndicator } from "@/components/canvas/nodes/NodeShell";
 import { useIsHandleConnected, useConnectedSourceValue } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
@@ -54,31 +54,52 @@ export function CropImageNode({ id, data, selected }: Props) {
       footer={<CostIndicator estimate="0.005 M" />}
     >
       <div className="relative">
-        <Handle id="input_image" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -7 }} />
+        <Handle id="input_image" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -9 }} />
         <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-zinc-500">
           Input Image <span className="text-red-500">*</span>
         </label>
-        <label
-          className={cn(
-            "flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2.5 text-xs text-zinc-400 hover:border-zinc-400",
-            inputConnected && "pointer-events-none opacity-50"
-          )}
-        >
-          <input type="file" accept={ACCEPTED_IMAGE_TYPES} className="hidden" onChange={(e) => handleUpload(e.target.files?.[0])} />
-          {uploading ? (
-            <span className="flex items-center gap-1.5">
-              <Loader2 size={12} className="animate-spin" /> Uploading…
-            </span>
-          ) : (connectedImagePreview ?? data.inputImageUrl) ? (
-            <span className="flex items-center gap-1.5">
-              <ImageIcon size={12} /> {(connectedImagePreview ?? data.inputImageUrl)!.split("/").pop()}
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-zinc-500">
-              <Upload size={13} /> Upload Image
-            </span>
-          )}
-        </label>
+        {(connectedImagePreview ?? data.inputImageUrl) && !uploading ? (
+          <label
+            className={cn(
+              "relative block cursor-pointer overflow-hidden rounded-lg border border-border bg-zinc-900",
+              inputConnected && "pointer-events-none"
+            )}
+          >
+            <input type="file" accept={ACCEPTED_IMAGE_TYPES} className="hidden" onChange={(e) => handleUpload(e.target.files?.[0])} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={(connectedImagePreview ?? data.inputImageUrl)!} alt="" className="block h-auto w-full" />
+            {/* Crop region overlay — positioned with the same percentages as
+                the sliders below, so it always reflects exactly what will
+                actually get cropped server-side. */}
+            <div
+              className="pointer-events-none absolute border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45)]"
+              style={{
+                left: `${data.xPercent}%`,
+                top: `${data.yPercent}%`,
+                width: `${data.widthPercent}%`,
+                height: `${data.heightPercent}%`,
+              }}
+            />
+          </label>
+        ) : (
+          <label
+            className={cn(
+              "flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2.5 text-xs text-zinc-400 hover:border-zinc-400",
+              inputConnected && "pointer-events-none opacity-50"
+            )}
+          >
+            <input type="file" accept={ACCEPTED_IMAGE_TYPES} className="hidden" onChange={(e) => handleUpload(e.target.files?.[0])} />
+            {uploading ? (
+              <span className="flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Uploading…
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-zinc-500">
+                <Upload size={13} /> Upload Image
+              </span>
+            )}
+          </label>
+        )}
       </div>
 
       {DIMENSION_FIELDS.map((f) => (
@@ -95,7 +116,7 @@ export function CropImageNode({ id, data, selected }: Props) {
             "No output yet"
           )}
         </div>
-        <Handle id="output_image" type="source" position={Position.Right} style={{ background: HANDLE_COLORS.image, right: -7 }} />
+        <Handle id="output_image" type="source" position={Position.Right} style={{ background: HANDLE_COLORS.image, right: -9 }} />
       </div>
     </NodeShell>
   );
@@ -115,7 +136,7 @@ function DimensionRow({
   const connected = useIsHandleConnected(nodeId, field.handle, "target");
   return (
     <div className="relative">
-      <Handle id={field.handle} type="target" position={Position.Left} style={{ background: PERCENT_HANDLE_COLOR, left: -7 }} />
+      <Handle id={field.handle} type="target" position={Position.Left} style={{ background: PERCENT_HANDLE_COLOR, left: -9 }} />
       <label className="mb-1 flex items-center gap-1 text-[11px] font-medium text-pink-600">
         {field.label}
        

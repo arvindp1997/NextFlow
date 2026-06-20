@@ -58,7 +58,7 @@ export function NodeShell({
       : "border border-border",
     runStatus === "running" &&
       !selected &&
-      "border-orange-300 animate-pulse-glow",
+      "border-purple-300 animate-pulse-glow",
     runStatus === "failed" &&
       !selected &&
       "border-red-300"

@@ -8,7 +8,7 @@ const config: Config = {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
-        canvas: "#fafafa",
+        canvas: "#f3f3f4",
         node: "#ffffff",
         border: {
           DEFAULT: "#e5e5e5",
@@ -32,8 +32,8 @@ const config: Config = {
       },
       keyframes: {
         "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(249,115,22,0.45)" },
-          "50%": { boxShadow: "0 0 0 6px rgba(249,115,22,0)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(168,85,247,0.45)" },
+          "50%": { boxShadow: "0 0 0 6px rgba(168,85,247,0)" },
         },
       },
       animation: {
