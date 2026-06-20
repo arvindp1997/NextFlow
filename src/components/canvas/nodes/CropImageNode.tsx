@@ -21,7 +21,7 @@ const DIMENSION_FIELDS: Array<{ key: keyof CropImageNodeData; handle: string; la
   { key: "heightPercent", handle: "height_percent", label: "Height (%)", tooltip: "Height of the crop area" },
 ];
 
-export function CropImageNode({ id, data }: Props) {
+export function CropImageNode({ id, data, selected }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const inputConnected = useIsHandleConnected(id, "input_image", "target");
   const connectedImagePreview = useConnectedSourceValue(id, "input_image");
@@ -42,6 +42,7 @@ export function CropImageNode({ id, data }: Props) {
 
   return (
     <NodeShell
+      selected={selected}
       nodeId={id}
       title={data.label}
       runStatus={data.runStatus}

@@ -14,7 +14,7 @@ type Props = NodeProps<FlowNode & { data: GeminiNodeData }>;
 
 const DEFAULT_SETTINGS = { temperature: 1, maxOutputTokens: 2048, topP: 0.95 };
 
-export function GeminiNode({ id, data }: Props) {
+export function GeminiNode({ id, data, selected }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const promptPreview = useConnectedSourceValue(id, "prompt");
@@ -35,6 +35,7 @@ export function GeminiNode({ id, data }: Props) {
 
   return (
     <NodeShell
+      selected={selected}
       nodeId={id}
       title={data.label}
       runStatus={data.runStatus}

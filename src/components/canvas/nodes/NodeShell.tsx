@@ -30,6 +30,7 @@ export function NodeShell({
   width = "w-72",
   children,
   footer,
+  selected,
 }: {
   nodeId: string;
   title: string;
@@ -41,20 +42,28 @@ export function NodeShell({
   width?: string;
   children: ReactNode;
   footer?: ReactNode;
+  selected?: boolean,
 }) {
   const deleteNode = useWorkflowStore((s) => s.deleteNode);
   const requestSingleRun = useRunRequestStore((s) => s.requestSingleRun);
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div
-      className={cn(
-        width,
-        "rounded-2xl border bg-white transition-shadow shadow-card",
-        runStatus === "running" ? "border-orange-300 animate-pulse-glow" : "border-border",
-        runStatus === "failed" && "border-red-300"
-      )}
-    >
+   <div
+  className={cn(
+    width,
+    "rounded-2xl bg-white shadow-card transition-all",
+    selected
+      ? "border-2 border-indigo-500"
+      : "border border-border",
+    runStatus === "running" &&
+      !selected &&
+      "border-orange-300 animate-pulse-glow",
+    runStatus === "failed" &&
+      !selected &&
+      "border-red-300"
+  )}
+>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13px] font-semibold text-zinc-800">{title}</span>

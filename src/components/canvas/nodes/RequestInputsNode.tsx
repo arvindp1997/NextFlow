@@ -57,7 +57,7 @@ function AddFieldButton({ onAdd }: { onAdd: (type: "text_field" | "image_field")
   );
 }
 
-export function RequestInputsNode({ id, data }: Props) {
+export function RequestInputsNode({ id, data , selected}: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
 
@@ -103,6 +103,7 @@ export function RequestInputsNode({ id, data }: Props) {
 
   return (
     <NodeShell
+      selected={selected}
       nodeId={id}
       title="Request-Inputs"
       deletable={false}
