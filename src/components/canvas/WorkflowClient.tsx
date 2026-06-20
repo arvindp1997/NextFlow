@@ -189,8 +189,8 @@ export function WorkflowClient({
             <button
               onClick={() => setHistoryOpen((v) => !v)}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full border border-border",
-                historyOpen ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                "flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white",
+                historyOpen ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-700"
               )}
               aria-label="Run history"
             >
