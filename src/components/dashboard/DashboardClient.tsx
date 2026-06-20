@@ -21,6 +21,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
   const [deleting, setDeleting] = useState<WorkflowSummary | null>(null);
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCreate(name: string, template: "blank" | "sample" = "blank") {
@@ -37,11 +38,18 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
   async function handleImportFile(file: File | undefined) {
     if (!file) return;
     setImporting(true);
+    setImportError(null);
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text);
+      let parsed: { name?: string; nodes?: unknown; edges?: unknown };
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        setImportError(`"${file.name}" isn't valid JSON.`);
+        return;
+      }
       if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
-        console.error("Invalid workflow JSON: missing nodes/edges");
+        setImportError(`"${file.name}" doesn't look like an exported workflow (missing nodes/edges).`);
         return;
       }
       const res = await fetch("/api/workflows", {
@@ -49,13 +57,22 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: parsed.name ?? file.name.replace(/\.json$/i, ""), nodes: parsed.nodes, edges: parsed.edges }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setImportError(typeof body?.error === "string" ? body.error : "Import failed — the server rejected the workflow.");
+        return;
+      }
       const { workflow } = await res.json();
-      router.push(`/workflow/${workflow.id}`);
+      setWorkflows((prev) => [
+        { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
+        ...prev,
+      ]);
     } catch (err) {
       console.error("Failed to import workflow:", err);
+      setImportError("Something went wrong reading that file.");
     } finally {
       setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
     }
   }
 
@@ -109,26 +126,29 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     <div className="flex min-h-screen bg-canvas">
       <Sidebar />
       <main className="flex-1 px-8 py-8">
-        <div className="mx-auto max-w-8xl pl-4 pr-4">
-          <div className="mb-8 flex items-center justify-between">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-8 flex items-start justify-between">
             <div>
               <h1 className="text-xl font-semibold text-zinc-900">Flow</h1>
               <p className="mt-1 text-sm text-zinc-500">Build workflows or run models directly</p>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                ref={importInputRef}
-                type="file"
-                accept="application/json"
-                className="hidden"
-                onChange={(e) => handleImportFile(e.target.files?.[0])}
-              />
-              <Button variant="secondary" size="sm" disabled={importing} onClick={() => importInputRef.current?.click()}>
-                <Upload size={14} /> {importing ? "Importing…" : "Import"}
-              </Button>
-              <Button size="sm" className="w-9 px-0" onClick={() => setCreating(true)} aria-label="New workflow">
-                <Plus size={15} />
-              </Button>
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(e) => handleImportFile(e.target.files?.[0])}
+                />
+                <Button variant="secondary" size="sm" disabled={importing} onClick={() => importInputRef.current?.click()}>
+                  <Upload size={14} /> {importing ? "Importing…" : "Import"}
+                </Button>
+                <Button size="sm" className="w-9 px-0" onClick={() => setCreating(true)} aria-label="New workflow">
+                  <Plus size={15} />
+                </Button>
+              </div>
+              {importError && <p className="max-w-xs text-right text-xs text-red-600">{importError}</p>}
             </div>
           </div>
 
