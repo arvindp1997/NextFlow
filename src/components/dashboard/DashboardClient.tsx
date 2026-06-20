@@ -6,7 +6,7 @@ import { Plus, Upload, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
-import { WorkflowThumbnail } from "@/components/dashboard/WorkflowThumbnail";
+import { WorkflowThumbnail } from "./WorkflowThumbnail";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { CreateWorkflowDialog } from "@/components/dashboard/CreateWorkflowDialog";
 import { RenameDialog } from "@/components/dashboard/RenameDialog";
@@ -32,6 +32,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     });
     if (!res.ok) return;
     const { workflow } = await res.json();
+    router.refresh();
     router.push(`/workflow/${workflow.id}`);
   }
 
@@ -67,6 +68,11 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
         { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
         ...prev,
       ]);
+      // Without this, the list updates here but Next.js's client-side Router
+      // Cache for /dashboard still holds the pre-import snapshot. Navigating
+      // into the new workflow's canvas and back can then serve that stale
+      // cached payload, making the just-imported card disappear again.
+      router.refresh();
     } catch (err) {
       console.error("Failed to import workflow:", err);
       setImportError("Something went wrong reading that file.");
@@ -84,6 +90,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
       { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
       ...prev,
     ]);
+    router.refresh();
   }
 
   async function handleExportJson(w: WorkflowSummary) {
@@ -109,6 +116,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     if (!res.ok) return;
     setWorkflows((prev) => prev.map((w) => (w.id === id ? { ...w, name } : w)));
     setRenaming(null);
+    router.refresh();
   }
 
   async function handleDelete(id: string) {
@@ -116,6 +124,7 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     if (!res.ok) return;
     setWorkflows((prev) => prev.filter((w) => w.id !== id));
     setDeleting(null);
+    router.refresh();
   }
 
   const filteredWorkflows = search.trim()
