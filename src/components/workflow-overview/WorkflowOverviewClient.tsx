@@ -28,7 +28,7 @@ export function WorkflowOverviewClient({
     <div className="flex h-screen">
       <Sidebar defaultCollapsed persist={false} />
       <div className="flex h-screen flex-1 flex-col bg-canvas">
-        <header className="shrink-0 border-b border-border bg-white px-4 pt-2.5">
+        <header className="shrink-0 border-b border-border bg-white px-4 pt-2.5 pl-10">
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100">
               <ArrowLeft size={16} />
@@ -39,20 +39,17 @@ export function WorkflowOverviewClient({
             <TabButton active={tab === "playground"} onClick={() => setTab("playground")}>
               Playground
             </TabButton>
-            <TabButton active={tab === "api"} onClick={() => setTab("api")}>
-              API
-            </TabButton>
+           
             <TabButton active={tab === "workflow"} onClick={() => setTab("workflow")}>
               Workflow
             </TabButton>
           </nav>
         </header>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto">
           {tab === "playground" && (
             <PlaygroundPanel workflowId={workflowId} initialNodes={nodes} initialEdges={edges} />
           )}
-          {tab === "api" && <ApiPlaceholder />}
           {tab === "workflow" && (
             <ReadOnlyWorkflowCanvas workflowId={workflowId} name={name} nodes={nodes} edges={edges} />
           )}
@@ -81,13 +78,5 @@ function TabButton({
     >
       {children}
     </button>
-  );
-}
-
-function ApiPlaceholder() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <p className="text-sm text-zinc-400">API access isn&apos;t available for this workflow yet.</p>
-    </div>
   );
 }

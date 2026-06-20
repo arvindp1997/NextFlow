@@ -33,9 +33,9 @@ export function ReadOnlyWorkflowCanvas({
   edges: FlowEdge[];
 }) {
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b border-border bg-white px-4 py-2.5">
-        <h2 className="text-sm font-semibold text-zinc-900">Workflow Structure</h2>
+        <div className="m-4 flex h-full flex-col rounded-2xl border border-gray-200">
+          <div className="flex shrink-0 items-center justify-between border-b border-border  px-4 py-5">
+        <h2 className="text-sm font-semibold text-zinc-900 pl-4">Workflow Structure</h2>
         <Link
           href={`/workflow/${workflowId}/edit`}
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"

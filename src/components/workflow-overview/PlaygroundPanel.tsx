@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Upload, CheckCircle2, XCircle, AlertCircle, Ban, Play } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, XCircle, AlertCircle, Ban, Play, AlignLeft, ImageIcon } from "lucide-react";
 import type { FlowNode, FlowEdge } from "@/store/workflowStore";
 import type { RequestInputsNodeData, ResponseNodeData, RequestInputField } from "@/lib/types";
 import { nodeDisplayLabel, slugifyLabel } from "@/lib/types";
@@ -143,9 +143,9 @@ export function PlaygroundPanel({
   const resultEdges = responseNode ? edges.filter((e) => e.target === responseNode.id && (e.targetHandle ?? "") === "result") : [];
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      <div className="grid flex-1 grid-cols-1 gap-4 p-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-white p-4">
+    <div className="flex h-full flex-col overflow-y-auto pl-6 pr-6">
+    <div className="grid flex-1 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]">
+         <div className="flex flex-col rounded-2xl border border-border bg-white p-4">
           <div className="mb-3 flex items-start justify-between">
             <div>
               <h2 className="text-sm font-semibold text-zinc-900">Inputs</h2>
@@ -158,9 +158,9 @@ export function PlaygroundPanel({
           </div>
 
           {!requestInputsNode || (requestInputsNode.data as RequestInputsNodeData).fields.length === 0 ? (
-            <p className="text-xs text-zinc-400">This workflow has no input fields defined.</p>
+            <p className="mb-4 text-xs text-zinc-400">This workflow has no input fields defined.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="mb-4 space-y-4">
               {(requestInputsNode.data as RequestInputsNodeData).fields.map((field) => (
                 <InputField
                   key={field.id}
@@ -177,7 +177,7 @@ export function PlaygroundPanel({
           <button
             onClick={handleRun}
             disabled={!requestInputsNode || running}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {running ? <Loader2 size={15} className="animate-spin" /> : <Play size={14} fill="currentColor" />}
             {running ? "Running…" : "Run"}
@@ -231,7 +231,7 @@ export function PlaygroundPanel({
         </div>
       </div>
 
-      <div className="border-t border-border bg-white px-4 py-4">
+      <div className="border-t rounded-2xl border-border bg-white p-4 ml-3 mr-3 mb-3">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-900">Run History ({runs.length})</h2>
           <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
@@ -241,12 +241,12 @@ export function PlaygroundPanel({
             >
               UI Runs
             </button>
-            <button
+            {/* <button
               onClick={() => setHistoryTab("api")}
               className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${historyTab === "api" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500"}`}
             >
               API Runs
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -302,7 +302,14 @@ function InputField({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[13px] font-medium text-zinc-700">{field.name}</span>
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-zinc-700">
+          {field.type === "text_field" ? (
+            <AlignLeft size={13} className="text-zinc-400" />
+          ) : (
+            <ImageIcon size={13} className="text-zinc-400" />
+          )}
+          {field.name}
+        </span>
         <span className="text-[11px] text-zinc-400">{field.type === "text_field" ? "Text" : "Image"}</span>
       </div>
       {field.type === "text_field" ? (
@@ -341,7 +348,6 @@ function InputField({
     </div>
   );
 }
-
 function EmptyOutput() {
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
