@@ -134,33 +134,19 @@ export function WorkflowClient({
     <div className="flex h-screen">
       <Sidebar defaultCollapsed persist={false} />
       <div className="flex h-screen flex-1 flex-col bg-canvas">
-      <header className="flex items-center justify-between px-4 py-2.5">
-       <div className="inline-flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-  <Link
-    href="/dashboard"
-    className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
-  >
-    <ArrowLeft size={18} />
-  </Link>
-
-  <input
-    className="
-      min-w-0
-      max-w-xs
-      bg-transparent
-      text-sm
-      font-medium
-      text-zinc-800
-      outline-none
-      placeholder:text-zinc-400
-    "
-    value={nameInput}
-    onChange={(e) => setNameInput(e.target.value)}
-    onBlur={handleRenameBlur}
-  />
-
-  <SaveIndicator state={saveState} />
-</div>
+      <header className="flex items-center justify-between border-b border-border bg-white px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <Link href={`/workflow/${workflowId}`} className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100">
+            <ArrowLeft size={16} />
+          </Link>
+          <input
+            className="min-w-0 max-w-xs truncate rounded-md px-1.5 py-1 text-sm font-medium text-zinc-900 outline-none hover:bg-zinc-50 focus:bg-zinc-50"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onBlur={handleRenameBlur}
+          />
+          <SaveIndicator state={saveState} />
+        </div>
 
         <div className="flex items-center gap-1.5">
           {/* Decorative, like the per-node cost indicators elsewhere — there's no
@@ -189,8 +175,8 @@ export function WorkflowClient({
             <button
               onClick={() => setHistoryOpen((v) => !v)}
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white",
-                historyOpen ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-700"
+                "flex h-8 w-8 items-center justify-center rounded-full border border-border",
+                historyOpen ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
               )}
               aria-label="Run history"
             >

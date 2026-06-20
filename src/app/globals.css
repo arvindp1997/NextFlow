@@ -81,3 +81,13 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Used by the read-only Workflow tab preview (see ReadOnlyWorkflowCanvas).
+   Reuses the real node components for visual fidelity, but neutralizes all
+   interaction with their internal content (buttons, inputs, sliders) — the
+   click/drag just falls through to whatever's behind it, which is the
+   React Flow pane, so panning still works normally. Scoped to this class
+   so the actual editable canvas is never affected. */
+.nextflow-readonly-canvas .react-flow__node {
+  pointer-events: none;
+}

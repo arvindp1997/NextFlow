@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth";
-import { WorkflowOverviewClient } from "@/components/workflow-overview/WorkflowOverviewClient";
+import { WorkflowClient } from "@/components/canvas/WorkflowClient";
 
-export default async function WorkflowOverviewPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WorkflowPage({ params }: { params: Promise<{ id: string }> }) {
   const userId = await requireUserId();
   const { id } = await params;
 
@@ -11,7 +11,7 @@ export default async function WorkflowOverviewPage({ params }: { params: Promise
   if (!workflow || workflow.clerkUserId !== userId) notFound();
 
   return (
-    <WorkflowOverviewClient
+    <WorkflowClient
       workflowId={workflow.id}
       name={workflow.name}
       nodes={workflow.nodes as never}
