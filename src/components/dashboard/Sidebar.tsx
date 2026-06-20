@@ -1,29 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { Sparkles, Workflow, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "nextflow-sidebar-collapsed";
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+export function Sidebar({
+  defaultCollapsed = false,
+  persist = true,
+}: {
+  // Initial collapsed state. On the dashboard this is left at the default
+  // (false) and the real starting value comes from localStorage below. In
+  // the canvas we pass true so the sidebar always starts collapsed there,
+  // regardless of whatever the dashboard's own preference is.
+  defaultCollapsed?: boolean;
+  // Whether toggling persists to the shared localStorage key. Off for the
+  // canvas, so temporarily expanding it there doesn't change the dashboard's
+  // separate remembered preference.
+  persist?: boolean;
+}) {
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   useEffect(() => {
+    if (!persist) return;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "1") setCollapsed(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggle() {
     setCollapsed((v) => {
-      localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
+      if (persist) localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
       return !v;
     });
   }
 
+  const flowActive = pathname === "/dashboard";
+
   return (
-    <aside className={cn("flex flex-col border-r border-border bg-gray-200 py-5 transition-all", collapsed ? "w-16 px-2" : "w-60 px-4")}>
+    <aside className={cn("flex flex-col border-r border-border bg-white py-5 transition-all", collapsed ? "w-16 px-2" : "w-60 px-4")}>
       <div className={cn("mb-8 flex items-center px-2", collapsed ? "flex-col gap-3" : "justify-between gap-2")}>
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white">
@@ -45,7 +64,8 @@ export function Sidebar() {
         <a
           href="/dashboard"
           className={cn(
-            "flex items-center gap-2.5 rounded-lg bg-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900",
+            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium",
+            flowActive ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
             collapsed && "justify-center px-0"
           )}
           title="Flow"

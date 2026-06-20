@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { WorkflowCanvas } from "@/components/canvas/WorkflowCanvas";
 import { HistoryPanel, type RunRecord } from "@/components/canvas/HistoryPanel";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/Button";
 import { useWorkflowStore, type FlowNode, type FlowEdge } from "@/store/workflowStore";
 import { useRunRequestStore } from "@/store/runRequestStore";
@@ -126,7 +127,9 @@ export function WorkflowClient({
   const selectedCount = store.selectedNodeIds.length;
 
   return (
-    <div className="flex h-screen flex-col bg-canvas">
+    <div className="flex h-screen">
+      <Sidebar defaultCollapsed persist={false} />
+      <div className="flex h-screen flex-1 flex-col bg-canvas">
       <header className="flex items-center justify-between border-b border-border bg-white px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <Link href="/dashboard" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100">
@@ -166,6 +169,7 @@ export function WorkflowClient({
           </ReactFlowProvider>
         </div>
         <HistoryPanel runs={runs} loading={historyLoading} onCancel={cancelRun} />
+      </div>
       </div>
     </div>
   );
