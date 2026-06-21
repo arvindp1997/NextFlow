@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useReactFlow, useViewport } from "@xyflow/react";
-import { Undo2, Redo2, Command, LayoutGrid, Move, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Undo2, Redo2, Command, Maximize2, LayoutGrid, Move, ChevronRight, ChevronLeft, ZoomOut, ZoomIn } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { Tooltip } from "./Tooltip"; 
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { select
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const shortcutsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,8 +31,18 @@ export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { select
     return () => document.removeEventListener("mousedown", onClickAway);
   }, []);
 
+  if (collapsed) {
+    return (
+      <div className="absolute bottom-6 left-6 z-20 rounded-full border border-border bg-white p-1.5 shadow-lg">
+        <ToolbarButton onClick={() => setCollapsed(false)} icon={<ChevronRight size={15} />} label="Expand controls" />
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute bottom-6 left-6 z-20 flex items-center gap-0.5 rounded-xl border border-border bg-white px-1.5 py-1.5 shadow-lg">
+    <div className="absolute bottom-6 left-6 z-20 flex items-center gap-0.5 rounded-2xl border border-border bg-white px-1.5 py-1.5 shadow-lg">
+      <ToolbarButton onClick={() => setCollapsed(true)} icon={<ChevronLeft size={15} />} label="Collapse controls" />
+      <Divider />
       <ToolbarButton onClick={undo} icon={<Undo2 size={15} />} label="Undo" />
       <ToolbarButton onClick={redo} icon={<Redo2 size={15} />} label="Redo" />
       <Divider />
