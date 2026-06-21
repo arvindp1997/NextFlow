@@ -16,9 +16,13 @@ import { WorkflowCanvas } from "@/components/canvas/WorkflowCanvas";
 import { HistoryPanel, type RunRecord } from "@/components/canvas/HistoryPanel";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/Button";
-import { Tooltip } from "./Tooltip"; 
+import { Tooltip } from "./Tooltip";
 import { cn } from "@/lib/utils";
-import { useWorkflowStore, type FlowNode, type FlowEdge } from "@/store/workflowStore";
+import {
+  useWorkflowStore,
+  type FlowNode,
+  type FlowEdge,
+} from "@/store/workflowStore";
 import { useRunRequestStore } from "@/store/runRequestStore";
 
 export function WorkflowClient({
@@ -36,7 +40,9 @@ export function WorkflowClient({
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
   const [nameInput, setNameInput] = useState(name);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -49,7 +55,11 @@ export function WorkflowClient({
   // Debounced autosave whenever the canvas is marked dirty.
   useEffect(() => {
     const unsub = useWorkflowStore.subscribe((state, prev) => {
-      if (!state.dirty || (state.nodes === prev.nodes && state.edges === prev.edges)) return;
+      if (
+        !state.dirty ||
+        (state.nodes === prev.nodes && state.edges === prev.edges)
+      )
+        return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       setSaveState("saving");
       saveTimer.current = setTimeout(async () => {
@@ -73,11 +83,19 @@ export function WorkflowClient({
 
     const latest = fetched[0];
     if (latest) {
-      const statusMap: Record<string, "idle" | "pending" | "running" | "success" | "failed"> = {};
+      const statusMap: Record<
+        string,
+        "idle" | "pending" | "running" | "success" | "failed"
+      > = {};
       const resultMap: Record<string, unknown> = {};
       for (const nr of latest.nodeRuns) {
-        statusMap[nr.nodeId] = nr.status.toLowerCase() as "pending" | "running" | "success" | "failed";
-        if (nr.output !== undefined && nr.output !== null) resultMap[nr.nodeId] = nr.output;
+        statusMap[nr.nodeId] = nr.status.toLowerCase() as
+          | "pending"
+          | "running"
+          | "success"
+          | "failed";
+        if (nr.output !== undefined && nr.output !== null)
+          resultMap[nr.nodeId] = nr.output;
       }
       useWorkflowStore.getState().applyRunStatuses(statusMap);
       useWorkflowStore.getState().applyNodeResults(resultMap);
@@ -91,7 +109,10 @@ export function WorkflowClient({
   }, [refreshHistory]);
 
   const runWorkflow = useCallback(
-    async (scope: "full" | "partial" | "single", targetNodeIds: string[] = []) => {
+    async (
+      scope: "full" | "partial" | "single",
+      targetNodeIds: string[] = [],
+    ) => {
       await fetch(`/api/workflows/${workflowId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,15 +120,17 @@ export function WorkflowClient({
       });
       refreshHistory();
     },
-    [workflowId, refreshHistory]
+    [workflowId, refreshHistory],
   );
 
   const cancelRun = useCallback(
     async (runId: string) => {
-      await fetch(`/api/workflows/${workflowId}/run/${runId}/cancel`, { method: "POST" });
+      await fetch(`/api/workflows/${workflowId}/run/${runId}/cancel`, {
+        method: "POST",
+      });
       refreshHistory();
     },
-    [workflowId, refreshHistory]
+    [workflowId, refreshHistory],
   );
 
   // Single-node run requests fired from inside a node's "Run" button.
@@ -134,17 +157,17 @@ export function WorkflowClient({
     <div className="flex h-screen">
       <Sidebar defaultCollapsed persist={false} />
       <div className="flex h-screen flex-1 flex-col bg-canvas">
-      <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <div className="inline-flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-  <Link
-    href={`/workflow/${workflowId}`}
-    className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
-  >
-    <ArrowLeft size={18} />
-  </Link>
+        <header className="flex items-center justify-between px-4 py-2.5">
+          <div className="inline-flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+            <Link
+              href={`/workflow/${workflowId}`}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
+            >
+              <ArrowLeft size={18} />
+            </Link>
 
-  <input
-    className="
+            <input
+              className="
       min-w-0
       max-w-xs
       bg-transparent
@@ -154,59 +177,75 @@ export function WorkflowClient({
       outline-none
       placeholder:text-zinc-400
     "
-    value={nameInput}
-    onChange={(e) => setNameInput(e.target.value)}
-    onBlur={handleRenameBlur}
-  />
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onBlur={handleRenameBlur}
+            />
 
-  <SaveIndicator state={saveState} />
-</div>
+            <SaveIndicator state={saveState} />
+          </div>
 
-        <div className="flex items-center gap-1.5">
-          {/* Decorative, like the per-node cost indicators elsewhere — there's no
+          <div className="flex items-center gap-1.5">
+            {/* Decorative, like the per-node cost indicators elsewhere — there's no
               real token/billing tracking anywhere in the app. */}
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-500">
-            <Calculator size={12} /> Est <span className="text-zinc-700">0.01 M</span>
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-500">
+              <Calculator size={12} /> Est{" "}
+              <span className="text-zinc-700">0.01 M</span>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-500">
+              <Wallet size={12} /> Bal{" "}
+              <span className="text-zinc-700">0.00 M</span>
+            </div>
+            {selectedCount > 1 && (
+              <Button
+                size="sm"
+                onClick={() => runWorkflow("partial", store.selectedNodeIds)}
+              >
+                <Play size={13} /> Run Selected ({selectedCount})
+              </Button>
+            )}
+            <Tooltip label="Run workflow" side="bottom">
+              <button
+                onClick={() => runWorkflow("full")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                aria-label="Run workflow"
+              >
+                <Play size={14} fill="currentColor" />
+              </button>
+            </Tooltip>
+            {!historyOpen && (
+              <Tooltip label="Run History" side="bottom">
+                <button
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-md border bg-white border-border",
+                    historyOpen
+                      ? "bg-zinc-900 text-white"
+                      : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700",
+                  )}
+                  aria-label="Run History"
+                >
+                  <History size={14} />
+                </button>
+              </Tooltip>
+            )}
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-500">
-            <Wallet size={12} /> Bal <span className="text-zinc-700">0.00 M</span>
-          </div>
-          {selectedCount > 1 && (
-            <Button size="sm" onClick={() => runWorkflow("partial", store.selectedNodeIds)}>
-              <Play size={13} /> Run Selected ({selectedCount})
-            </Button>
-          )}
-          <Tooltip label="Run workflow" side="bottom">
-            <button
-              onClick={() => runWorkflow("full")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
-              aria-label="Run workflow"
-            >
-              <Play size={14} fill="currentColor" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Run history" side="bottom">
-            <button
-              onClick={() => setHistoryOpen((v) => !v)}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md border bg-white border-border",
-                historyOpen ? "bg-zinc-900 text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-              )}
-              aria-label="Run history"
-            >
-              <History size={14} />
-            </button>
-          </Tooltip>
-        </div>
-      </header>
+        </header>
 
-      <div className="flex-1 overflow-hidden">
-        <ReactFlowProvider>
-          <WorkflowCanvas />
-        </ReactFlowProvider>
+        <div className="flex-1 overflow-hidden">
+          <ReactFlowProvider>
+            <WorkflowCanvas />
+          </ReactFlowProvider>
+        </div>
       </div>
-      </div>
-      {historyOpen && <HistoryPanel runs={runs} loading={historyLoading} onCancel={cancelRun} onClose={() => setHistoryOpen(false)} />}
+      {historyOpen && (
+        <HistoryPanel
+          runs={runs}
+          loading={historyLoading}
+          onCancel={cancelRun}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   );
 }

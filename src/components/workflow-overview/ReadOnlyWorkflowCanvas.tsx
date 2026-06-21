@@ -34,11 +34,11 @@ export function ReadOnlyWorkflowCanvas({
 }) {
   return (
         <div className="m-4 flex h-full flex-col rounded-2xl border border-gray-200">
-          <div className="flex shrink-0 items-center justify-between border-b border-border  px-4 py-5">
-        <h2 className="text-sm font-semibold text-zinc-900 pl-4">Workflow Structure</h2>
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-5">
+        <h2 className="text-lg font-semibold text-zinc-900 pl-4">Workflow Structure</h2>
         <Link
           href={`/workflow/${workflowId}/edit`}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+          className="flex items-center gap-3 rounded-2xl border border-border px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
         >
           <Pencil size={13} /> Edit Workflow
         </Link>
@@ -79,7 +79,7 @@ function CanvasPreview({
   }, [workflowId]);
 
   return (
-    <div className="nextflow-readonly-canvas h-full w-full">
+    <div className="nextflow-readonly-canvas bg-canvas h-full w-full">
       <ReactFlow
         nodes={storeNodes}
         edges={storeEdges}
