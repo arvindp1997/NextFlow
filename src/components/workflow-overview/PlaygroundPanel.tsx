@@ -180,6 +180,7 @@ export function PlaygroundPanel({
               Est ~0.01 M
             </span>
           </div>
+          <hr className="mb-4 w-full border-border" />
 
           {!requestInputsNode ||
           (requestInputsNode.data as RequestInputsNodeData).fields.length ===
@@ -225,6 +226,7 @@ export function PlaygroundPanel({
           <p className="mb-3 text-xs text-zinc-400">
             Results from workflow execution
           </p>
+          <hr className="mb-4 w-full border-border" />
 
           {resultEdges.length === 0 ? (
             <EmptyOutput />
