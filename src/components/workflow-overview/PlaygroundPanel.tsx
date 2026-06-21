@@ -166,7 +166,7 @@ export function PlaygroundPanel({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto pl-10 pr-10">
-      <div className="grid flex-1 h-[800px] grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]">
+      <div className="grid h-[800px] shrink-0 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]">
         <div className="flex flex-col rounded-2xl border border-border bg-white p-4">
           <div className="mb-3 flex items-start justify-between">
             <div>
@@ -280,7 +280,7 @@ export function PlaygroundPanel({
         </div>
       </div>
 
-      <div className="border rounded-2xl border-border bg-white p-4 ml-3 mr-3 mb-3">
+      <div className="border rounded-2xl border-border bg-white p-4 ml-3 mr-3 mb-3 shrink-0">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-900">
             Run History ({runs.length})
