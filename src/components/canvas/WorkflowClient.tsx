@@ -156,8 +156,21 @@ export function WorkflowClient({
   return (
     <div className="flex h-screen">
       <Sidebar defaultCollapsed persist={false} />
-      <div className="flex h-screen flex-1 flex-col bg-canvas">
-        <header className="flex items-center justify-between px-4 py-2.5">
+      <div className="relative h-screen flex-1 bg-canvas">
+        {/* Full-height canvas underneath everything — the header and the
+            bottom toolbar are both floating overlays on top of it (z-20),
+            not flex siblings that carve out their own space. This is what
+            lets a dragged node stay visible underneath the header/toolbar,
+            the same way it already does under the bottom toolbar, instead
+            of getting hard-clipped at a boundary that happens to sit right
+            below the header. */}
+        <div className="absolute inset-0">
+          <ReactFlowProvider>
+            <WorkflowCanvas />
+          </ReactFlowProvider>
+        </div>
+
+        <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-4 py-2.5">
           <div className="inline-flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <Link
               href={`/workflow/${workflowId}`}
@@ -231,12 +244,6 @@ export function WorkflowClient({
             )}
           </div>
         </header>
-
-        <div className="flex-1 overflow-hidden">
-          <ReactFlowProvider>
-            <WorkflowCanvas />
-          </ReactFlowProvider>
-        </div>
       </div>
       {historyOpen && (
         <HistoryPanel
