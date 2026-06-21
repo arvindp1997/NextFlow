@@ -27,15 +27,15 @@ export function WorkflowOverviewClient({
   return (
     <div className="flex h-screen">
       <Sidebar defaultCollapsed persist={false} />
-      <div className="flex h-screen flex-1 flex-col bg-canvas">
-        <header className="shrink-0 border-b border-border bg-white px-4 pt-2.5 pl-10">
-          <div className="flex items-center gap-2">
+      <div className="flex h-screen flex-1 flex-col bg-white">
+        <header className="shrink-0 border-b border-border bg-white px-4 pt-2.5 pl-14">
+          <div className="flex items-center gap-2 mt-4">
             <Link href="/dashboard" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100">
               <ArrowLeft size={16} />
             </Link>
             <h1 className="truncate text-sm font-semibold text-zinc-900">{name}</h1>
           </div>
-          <nav className="mt-3 flex gap-5">
+          <nav className="mt-5 flex gap-5">
             <TabButton active={tab === "playground"} onClick={() => setTab("playground")}>
               Playground
             </TabButton>
@@ -73,7 +73,7 @@ function TabButton({
       onClick={onClick}
       className={cn(
         "border-b-2 pb-2.5 text-[13px] font-medium transition-colors",
-        active ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-600"
+        active ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-600 hover:text-zinc-600"
       )}
     >
       {children}
