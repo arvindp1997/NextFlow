@@ -13,7 +13,11 @@ import { RenameDialog } from "@/components/dashboard/RenameDialog";
 import { DeleteDialog } from "@/components/dashboard/DeleteDialog";
 import type { WorkflowSummary } from "@/lib/types";
 
-export function DashboardClient({ initialWorkflows }: { initialWorkflows: WorkflowSummary[] }) {
+export function DashboardClient({
+  initialWorkflows,
+}: {
+  initialWorkflows: WorkflowSummary[];
+}) {
   const router = useRouter();
   const [workflows, setWorkflows] = useState(initialWorkflows);
   const [creating, setCreating] = useState(false);
@@ -33,7 +37,13 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     if (!res.ok) return;
     const { workflow } = await res.json();
     setWorkflows((prev) => [
-      { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
+      {
+        id: workflow.id,
+        name: workflow.name,
+        status: workflow.status,
+        lastEditedAt: workflow.lastEditedAt,
+        createdAt: workflow.createdAt,
+      },
       ...prev,
     ]);
     router.refresh();
@@ -69,22 +79,38 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
         return;
       }
       if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
-        setImportError(`"${file.name}" doesn't look like an exported workflow (missing nodes/edges).`);
+        setImportError(
+          `"${file.name}" doesn't look like an exported workflow (missing nodes/edges).`,
+        );
         return;
       }
       const res = await fetch("/api/workflows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: parsed.name ?? file.name.replace(/\.json$/i, ""), nodes: parsed.nodes, edges: parsed.edges }),
+        body: JSON.stringify({
+          name: parsed.name ?? file.name.replace(/\.json$/i, ""),
+          nodes: parsed.nodes,
+          edges: parsed.edges,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setImportError(typeof body?.error === "string" ? body.error : "Import failed — the server rejected the workflow.");
+        setImportError(
+          typeof body?.error === "string"
+            ? body.error
+            : "Import failed — the server rejected the workflow.",
+        );
         return;
       }
       const { workflow } = await res.json();
       setWorkflows((prev) => [
-        { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
+        {
+          id: workflow.id,
+          name: workflow.name,
+          status: workflow.status,
+          lastEditedAt: workflow.lastEditedAt,
+          createdAt: workflow.createdAt,
+        },
         ...prev,
       ]);
       // Without this, the list updates here but Next.js's client-side Router
@@ -102,11 +128,19 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
   }
 
   async function handleDuplicate(id: string) {
-    const res = await fetch(`/api/workflows/${id}/duplicate`, { method: "POST" });
+    const res = await fetch(`/api/workflows/${id}/duplicate`, {
+      method: "POST",
+    });
     if (!res.ok) return;
     const { workflow } = await res.json();
     setWorkflows((prev) => [
-      { id: workflow.id, name: workflow.name, status: workflow.status, lastEditedAt: workflow.lastEditedAt, createdAt: workflow.createdAt },
+      {
+        id: workflow.id,
+        name: workflow.name,
+        status: workflow.status,
+        lastEditedAt: workflow.lastEditedAt,
+        createdAt: workflow.createdAt,
+      },
       ...prev,
     ]);
     router.refresh();
@@ -116,7 +150,11 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
     const res = await fetch(`/api/workflows/${w.id}`);
     if (!res.ok) return;
     const { workflow } = await res.json();
-    const data = JSON.stringify({ name: workflow.name, nodes: workflow.nodes, edges: workflow.edges }, null, 2);
+    const data = JSON.stringify(
+      { name: workflow.name, nodes: workflow.nodes, edges: workflow.edges },
+      null,
+      2,
+    );
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -147,18 +185,22 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
   }
 
   const filteredWorkflows = search.trim()
-    ? workflows.filter((w) => w.name.toLowerCase().includes(search.trim().toLowerCase()))
+    ? workflows.filter((w) =>
+        w.name.toLowerCase().includes(search.trim().toLowerCase()),
+      )
     : workflows;
 
   return (
     <div className="flex h-screen overflow-hidden bg-canvas">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 border border-l-gray-300">
         <div className="mx-auto  pl-4 pr-4">
           <div className="mb-8 flex items-start justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-zinc-900">Flow</h1>
-              <p className="mt-1 text-sm text-zinc-500">Build workflows or run models directly</p>
+              <h1 className="text-2xl font-semibold text-zinc-900">Flow</h1>
+              <p className="mt-1 text-sm text-zinc-600">
+                Build workflows or run models directly
+              </p>
             </div>
             <div className="flex flex-col items-end gap-1.5">
               <div className="flex items-center gap-2">
@@ -169,27 +211,51 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
                   className="hidden"
                   onChange={(e) => handleImportFile(e.target.files?.[0])}
                 />
-                <Button variant="secondary" size="sm" disabled={importing} onClick={() => importInputRef.current?.click()}>
-                  <Upload size={14} /> {importing ? "Importing…" : "Import"}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={importing}
+                  onClick={() => importInputRef.current?.click()}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 "
+                >
+                  <Upload size={14} />
+                  {importing ? "Importing…" : "Import"}
                 </Button>
-                <Button size="sm" className="w-9 px-0" onClick={() => setCreating(true)} aria-label="New workflow">
-                  <Plus size={15} />
+                <Button
+                  size="sm"
+                  className="w-9 px-0 bg-black/70"
+                  onClick={() => setCreating(true)}
+                  aria-label="New workflow"
+                >
+                  <Plus size={22} />
                 </Button>
               </div>
-              {importError && <p className="max-w-xs text-right text-xs text-red-600">{importError}</p>}
+              {importError && (
+                <p className="max-w-xs text-right text-xs text-red-600">
+                  {importError}
+                </p>
+              )}
             </div>
           </div>
 
           <section className="mb-10">
-            <h2 className="text-sm font-semibold text-zinc-900">System Workflows</h2>
-            <p className="mt-1 text-xs text-zinc-500">Prebuilt workflow templates - click to open and start using.</p>
+            <h2 className="text-base font-normal text-zinc-900">
+              System Workflows
+            </h2>
+            <p className="mt-1 text-xs text-zinc-600">
+              Prebuilt workflow templates - click to open and start using.
+            </p>
             <button
-              className="mt-4 w-72 cursor-pointer overflow-hidden rounded-2xl border border-border bg-white text-left shadow-card transition-shadow hover:shadow-card-selected"
-              onClick={() => handleOpenTemplate("Product Marketing Pipeline (Sample)")}
+              className="mt-4 w-[350px] cursor-pointer overflow-hidden rounded-2xl border border-border bg-white text-left shadow-card transition-shadow hover:shadow-card-selected"
+              onClick={() =>
+                handleOpenTemplate("Product Marketing Pipeline (Sample)")
+              }
             >
               <WorkflowThumbnail />
-              <div className="border-t border-border px-3 py-2.5">
-                <span className="text-sm font-semibold text-zinc-900">Product Marketing Pipeline</span>
+              <div className="border-t bg-canvas border-border px-3 py-2.5">
+                <span className="text-sm font-semibold text-zinc-900">
+                  Product Marketing Pipeline
+                </span>
               </div>
             </button>
           </section>
@@ -197,16 +263,23 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
           <section>
             <div className="flex items-end justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-zinc-900">Your Workflows</h2>
-                <p className="mt-1 text-xs text-zinc-500">Open one to edit, run, and review history.</p>
+                <h2 className="text-sm font-semibold text-zinc-900">
+                  Your Workflows
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Open one to edit, run, and review history.
+                </p>
               </div>
               <div className="relative w-64">
-                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
+                />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search workflows…"
-                  className="w-full rounded-lg border border-border bg-white py-1.5 pl-8 pr-3 text-sm text-zinc-700 outline-none focus:border-zinc-400"
+                  className="w-full rounded-lg border border-border bg-gray-200 py-1.5 pl-8 pr-3 text-base text-zinc-700 outline-none focus:border-zinc-400"
                 />
               </div>
             </div>
@@ -215,7 +288,9 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
               {workflows.length === 0 ? (
                 <EmptyState onCreate={() => setCreating(true)} />
               ) : filteredWorkflows.length === 0 ? (
-                <p className="text-sm text-zinc-400">No workflows match &ldquo;{search}&rdquo;.</p>
+                <p className="text-sm text-zinc-400">
+                  No workflows match &ldquo;{search}&rdquo;.
+                </p>
               ) : (
                 <div className="flex flex-wrap gap-4">
                   {filteredWorkflows.map((w) => (
@@ -236,7 +311,11 @@ export function DashboardClient({ initialWorkflows }: { initialWorkflows: Workfl
         </div>
       </main>
 
-      <CreateWorkflowDialog open={creating} onClose={() => setCreating(false)} onCreate={handleCreate} />
+      <CreateWorkflowDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreate={handleCreate}
+      />
       {renaming && (
         <RenameDialog
           open={!!renaming}

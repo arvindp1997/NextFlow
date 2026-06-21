@@ -34,7 +34,7 @@ export function WorkflowCard({
 
   return (
     <div
-      className="group relative w-72 cursor-pointer rounded-2xl border border-border bg-white shadow-card transition-shadow hover:shadow-card-selected"
+      className="group relative w-72 cursor-pointer rounded-2xl border border-border bg-canvas  transition-shadow hover:shadow-card-selected"
       onClick={onOpen}
     >
       <div className="overflow-hidden rounded-t-2xl">
@@ -67,7 +67,7 @@ export function WorkflowCard({
         )}
       </div>
 
-      <div className="rounded-b-2xl border-t border-border px-3 py-2.5">
+      <div className="rounded-b-2xl  px-3 py-2.5 ">
         <h3 className="truncate text-sm font-semibold text-zinc-900">{workflow.name}</h3>
         <span className="text-xs text-zinc-400">Edited {formatRelativeTime(workflow.lastEditedAt)}</span>
       </div>
