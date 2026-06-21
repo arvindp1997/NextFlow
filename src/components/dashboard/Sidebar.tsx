@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Sparkles, Workflow, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  Sparkles,
+  Workflow,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "nextflow-sidebar-collapsed";
@@ -42,21 +47,39 @@ export function Sidebar({
   const flowActive = pathname === "/dashboard";
 
   return (
-    <aside className={cn("flex flex-col border-r border-border bg-gray-200 py-5 transition-all", collapsed ? "w-16 px-2" : "w-60 px-4")}>
-      <div className={cn("mb-8 flex items-center px-2", collapsed ? "flex-col gap-3" : "justify-between gap-2")}>
+    <aside
+      className={cn(
+        "flex flex-col border-r border-border bg-gray-200 py-5 transition-all",
+        collapsed ? "w-16 px-2" : "w-[280px] px-4",
+      )}
+    >
+      <div
+        className={cn(
+          "mb-8 flex items-center px-2",
+          collapsed ? "flex-col gap-3" : "justify-between gap-2",
+        )}
+      >
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white">
+         {!collapsed && <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white">
             <Sparkles size={15} />
-          </div>
-          {!collapsed && <span className="text-sm font-semibold text-zinc-900">NextFlow</span>}
+          </div> } 
+          {!collapsed && (
+            <span className="text-lg font-semibold text-zinc-900">
+              NextFlow
+            </span>
+          )}
         </div>
         <button
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-700"
           onClick={toggle}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+          {collapsed ? (
+            <PanelLeftOpen strokeWidth={2.5} size={18} />
+          ) : (
+            <PanelLeftClose size={18} strokeWidth={2.5} />
+          )}
         </button>
       </div>
 
@@ -64,9 +87,11 @@ export function Sidebar({
         <a
           href="/dashboard"
           className={cn(
-            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium",
-            flowActive ? "bg-zinc-300 text-zinc-900" : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
-            collapsed && "justify-center px-0"
+            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-light",
+            flowActive
+              ? "bg-zinc-300 text-zinc-900"
+              : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
+            collapsed && "justify-center px-0",
           )}
           title="Flow"
         >
@@ -75,7 +100,12 @@ export function Sidebar({
         </a>
       </nav>
 
-      <div className={cn("border-t border-border pt-4", collapsed && "flex justify-center")}>
+      <div
+        className={cn(
+          "border-t border-border pt-4 flex justify-center",
+          collapsed && "text-center",
+        )}
+      >
         <UserButton afterSignOutUrl="/sign-in" showName={!collapsed} />
       </div>
     </aside>
