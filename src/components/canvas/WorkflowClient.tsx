@@ -221,7 +221,7 @@ export function WorkflowClient({
                     "flex h-8 w-8 items-center justify-center rounded-md border bg-white border-border",
                     historyOpen
                       ? "bg-zinc-900 text-white"
-                      : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700",
+                      : "text-black hover:bg-zinc-100 hover:text-zinc-700",
                   )}
                   aria-label="Run History"
                 >
