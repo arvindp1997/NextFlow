@@ -33,6 +33,7 @@ interface WorkflowState {
   nodes: FlowNode[];
   edges: FlowEdge[];
   selectedNodeIds: string[];
+  selectedEdgeIds: string[];
   past: HistoryEntry[];
   future: HistoryEntry[];
   dirty: boolean;
@@ -49,6 +50,7 @@ interface WorkflowState {
   duplicateNode: (nodeId: string) => void;
   deleteSelected: () => void;
   setSelected: (ids: string[]) => void;
+  setSelectedEdges: (ids: string[]) => void;
   undo: () => void;
   redo: () => void;
   applyRunStatuses: (statuses: Record<string, "idle" | "pending" | "running" | "success" | "failed">) => void;
@@ -72,12 +74,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeIds: [],
+  selectedEdgeIds: [],
   past: [],
   future: [],
   dirty: false,
 
   load: (workflowId, name, nodes, edges) => {
-    set({ workflowId, name, nodes, edges, past: [], future: [], dirty: false, selectedNodeIds: [] });
+    set({ workflowId, name, nodes, edges, past: [], future: [], dirty: false, selectedNodeIds: [], selectedEdgeIds: [] });
   },
 
   /**
@@ -190,22 +193,29 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   deleteSelected: () => {
-    const { selectedNodeIds } = get();
-    const deletable = selectedNodeIds.filter((id) => {
+    const { selectedNodeIds, selectedEdgeIds } = get();
+    const deletableNodes = selectedNodeIds.filter((id) => {
       const n = get().nodes.find((node) => node.id === id);
       return n && !NON_DELETABLE.includes(n.data.kind);
     });
-    if (deletable.length === 0) return;
+    if (deletableNodes.length === 0 && selectedEdgeIds.length === 0) return;
     pushHistory(get, set);
     set({
-      nodes: get().nodes.filter((n) => !deletable.includes(n.id)),
-      edges: get().edges.filter((e) => !deletable.includes(e.source) && !deletable.includes(e.target)),
+      nodes: get().nodes.filter((n) => !deletableNodes.includes(n.id)),
+      edges: get().edges.filter(
+        (e) =>
+          !selectedEdgeIds.includes(e.id) &&
+          !deletableNodes.includes(e.source) &&
+          !deletableNodes.includes(e.target)
+      ),
       selectedNodeIds: [],
+      selectedEdgeIds: [],
       dirty: true,
     });
   },
 
   setSelected: (ids) => set({ selectedNodeIds: ids }),
+  setSelectedEdges: (ids) => set({ selectedEdgeIds: ids }),
 
   undo: () => {
     const { past } = get();
