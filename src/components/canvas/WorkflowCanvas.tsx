@@ -18,7 +18,7 @@ import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { AddNodeChip } from "@/components/canvas/AddNodeChip";
 import { TypedEdge } from "@/components/canvas/TypedEdge";
 import { Map as MapIcon } from "lucide-react";
-import { Tooltip } from "./Tooltip";
+import { Tooltip } from "./Tooltip"; 
 import { cn } from "@/lib/utils";
 
 const nodeTypes = {
@@ -39,22 +39,32 @@ export function WorkflowCanvas() {
   const onEdgesChange = useWorkflowStore((s) => s.onEdgesChange);
   const onConnect = useWorkflowStore((s) => s.onConnect);
   const setSelected = useWorkflowStore((s) => s.setSelected);
+  const setSelectedEdges = useWorkflowStore((s) => s.setSelectedEdges);
   const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
+  const duplicateNode = useWorkflowStore((s) => s.duplicateNode);
+  const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const clipboardNodeId = useRef<string | null>(null);
   const [minimapVisible, setMinimapVisible] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
 
   const onSelectionChange = useCallback(
-    ({ nodes: selected }: OnSelectionChangeParams) => setSelected(selected.map((n) => n.id)),
-    [setSelected]
+    ({ nodes: selected, edges: selectedEdges }: OnSelectionChangeParams) => {
+      setSelected(selected.map((n) => n.id));
+      setSelectedEdges(selectedEdges.map((e) => e.id));
+    },
+    [setSelected, setSelectedEdges]
   );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
+      const target = e.target as HTMLElement;
+      const isTyping = ["INPUT", "TEXTAREA"].includes(target.tagName) || target.isContentEditable;
+
       if (meta && e.key.toLowerCase() === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -62,12 +72,19 @@ export function WorkflowCanvas() {
         e.preventDefault();
         redo();
       } else if (e.key === "Delete" || e.key === "Backspace") {
-        const target = e.target as HTMLElement;
-        if (["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+        if (isTyping) return;
         deleteSelected();
+      } else if (meta && e.key.toLowerCase() === "c" && !isTyping) {
+        const targetId = selectedNodeIds[0];
+        if (targetId) clipboardNodeId.current = targetId;
+      } else if (meta && e.key.toLowerCase() === "v" && !isTyping) {
+        if (clipboardNodeId.current) {
+          e.preventDefault();
+          duplicateNode(clipboardNodeId.current);
+        }
       }
     },
-    [undo, redo, deleteSelected]
+    [undo, redo, deleteSelected, selectedNodeIds, duplicateNode]
   );
 
   const dropPosition = useMemo(
@@ -110,7 +127,7 @@ export function WorkflowCanvas() {
           slot already, so a literal overlap would obscure both); when
           closed, this drops down into the minimap's own spot as the way to
           bring it back. */}
-      <div className={cn("absolute right-8 z-20", minimapVisible ? "bottom-[180px]" : "bottom-4")}>
+      <div className={cn("absolute right-4 z-20", minimapVisible ? "bottom-[180px]" : "bottom-4")}>
         <Tooltip label={minimapVisible ? "Hide minimap" : "Show minimap"}>
           <button
             onClick={() => setMinimapVisible((v) => !v)}
