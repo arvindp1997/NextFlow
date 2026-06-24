@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Loader2,
   Upload,
@@ -12,6 +12,7 @@ import {
   AlignLeft,
   ImageIcon,
   X,
+  Search,
 } from "lucide-react";
 import type { FlowNode, FlowEdge } from "@/store/workflowStore";
 import type {
@@ -61,7 +62,16 @@ export function PlaygroundPanel({
   const [running, setRunning] = useState(false);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [historyTab, setHistoryTab] = useState<"ui" | "api">("ui");
+  const [runSearch, setRunSearch] = useState("");
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const filteredRuns = useMemo(() => {
+    const searchTerm = runSearch.trim().toLowerCase();
+
+    if (!searchTerm) return runs;
+
+    return runs.filter((r) => r.id.toLowerCase().includes(searchTerm));
+  }, [runs, runSearch]);
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -287,18 +297,40 @@ export function PlaygroundPanel({
       </div>
 
       <div className="border rounded-2xl border-border bg-white p-4 ml-3 mr-3 mb-3 shrink-0">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-900">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-zinc-900 shrink-0">
             Run History ({runs.length})
           </h2>
-          <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-            <button
-              onClick={() => setHistoryTab("ui")}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${historyTab === "ui" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500"}`}
-            >
-              UI Runs
-            </button>
-          
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+              <button
+                onClick={() => setHistoryTab("ui")}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${historyTab === "ui" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500"}`}
+              >
+                UI Runs
+              </button>
+            </div>
+            <div className="relative">
+              <Search
+                size={12}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Search by Run ID…"
+                value={runSearch}
+                onChange={(e) => setRunSearch(e.target.value)}
+                className="h-7 w-44 rounded-lg border border-border bg-zinc-50 pl-6 pr-2.5 text-[11px] text-zinc-700 outline-none placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:ring-1 focus:ring-zinc-200"
+              />
+              {runSearch && (
+                <button
+                  onClick={() => setRunSearch("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -318,8 +350,14 @@ export function PlaygroundPanel({
                   {historyTab === "api" ? "No API runs yet." : "No UI run yet."}
                 </td>
               </tr>
+            ) : filteredRuns.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="py-6 text-center text-zinc-400">
+                  No runs match &quot;{runSearch}&quot;
+                </td>
+              </tr>
             ) : (
-              runs.map((run) => (
+              filteredRuns.map((run) => (
                 <PlaygroundRunRow key={run.id} run={run} />
               ))
             )}
@@ -381,7 +419,11 @@ function NodeStatusDot({ status }: { status: NodeRunRecord["status"] }) {
     PENDING: "bg-zinc-300",
     SKIPPED: "bg-zinc-300",
   };
-  return <span className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`} />;
+  return (
+    <span
+      className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`}
+    />
+  );
 }
 
 function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
@@ -404,7 +446,9 @@ function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
           {nodeRun.nodeLabel}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="text-[10px] text-zinc-400 capitalize">{nodeRun.status.toLowerCase()}</span>
+          <span className="text-[10px] text-zinc-400 capitalize">
+            {nodeRun.status.toLowerCase()}
+          </span>
           {hasDetails && (
             <ChevronDown
               size={10}
@@ -449,14 +493,18 @@ function PlaygroundRunRow({ run }: { run: RunRow }) {
         className="cursor-pointer border-b border-border last:border-0 hover:bg-zinc-50 transition-colors"
         onClick={() => setOpen((v) => !v)}
       >
-        <td className="py-2.5 text-zinc-600">{formatRelativeTime(run.startedAt)}</td>
+        <td className="py-2.5 text-zinc-600">
+          {formatRelativeTime(run.startedAt)}
+        </td>
         <td className="py-2.5">
           <RunStatusBadge status={run.status} />
         </td>
         <td className="py-2.5 text-zinc-400">~0.01 M</td>
         <td className="py-2.5 text-right">
           <span className="flex items-center justify-end gap-1.5">
-            <span className="font-mono text-[11px] text-zinc-400">{run.id}</span>
+            <span className="font-mono text-[11px] text-zinc-400">
+              {run.id}
+            </span>
             {run.nodeRuns.length > 0 && (
               <ChevronDown
                 size={11}
