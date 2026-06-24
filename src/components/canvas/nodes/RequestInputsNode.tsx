@@ -2,13 +2,26 @@
 
 import { useState } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { Plus, AlignLeft, ImageIcon, Trash2, Copy, Upload, Loader2, GripVertical } from "lucide-react";
+import {
+  Plus,
+  AlignLeft,
+  ImageIcon,
+  Trash2,
+  Copy,
+  Upload,
+  Loader2,
+  GripVertical,
+  X,
+} from "lucide-react";
 import { NodeShell } from "@/components/canvas/nodes/NodeShell";
 import { OutputHandleRow } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { RequestInputsNodeData, RequestInputField } from "@/lib/types";
 import { uid } from "@/lib/utils";
-import { uploadImageViaTransloadit, ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import {
+  uploadImageViaTransloadit,
+  ACCEPTED_IMAGE_TYPES,
+} from "@/lib/transloadit-upload";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: RequestInputsNodeData }>;
@@ -18,7 +31,11 @@ const FIELD_TOOLTIPS: Record<RequestInputField["type"], string> = {
   image_field: "An image file uploaded by the user",
 };
 
-function AddFieldButton({ onAdd }: { onAdd: (type: "text_field" | "image_field") => void }) {
+function AddFieldButton({
+  onAdd,
+}: {
+  onAdd: (type: "text_field" | "image_field") => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -58,7 +75,7 @@ function AddFieldButton({ onAdd }: { onAdd: (type: "text_field" | "image_field")
   );
 }
 
-export function RequestInputsNode({ id, data , selected}: Props) {
+export function RequestInputsNode({ id, data, selected }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
 
@@ -74,7 +91,11 @@ export function RequestInputsNode({ id, data , selected}: Props) {
   }
 
   function updateField(fieldId: string, patch: Partial<RequestInputField>) {
-    updateNodeData(id, { fields: data.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)) });
+    updateNodeData(id, {
+      fields: data.fields.map((f) =>
+        f.id === fieldId ? { ...f, ...patch } : f,
+      ),
+    });
   }
 
   function removeField(fieldId: string) {
@@ -83,7 +104,9 @@ export function RequestInputsNode({ id, data , selected}: Props) {
 
   async function copyFieldValue(field: RequestInputField) {
     try {
-      await navigator.clipboard.writeText(field.value ? String(field.value) : "");
+      await navigator.clipboard.writeText(
+        field.value ? String(field.value) : "",
+      );
     } catch (err) {
       console.error("Copy to clipboard failed:", err);
     }
@@ -108,26 +131,29 @@ export function RequestInputsNode({ id, data , selected}: Props) {
       nodeId={id}
       title="Request-Inputs"
       deletable={false}
-      titleSlot={
-         <Tooltip text={"Define the inputs your workflow accepts"} />
-      }
+      titleSlot={<Tooltip text={"Define the inputs your workflow accepts"} />}
       headerExtra={<AddFieldButton onAdd={addField} />}
     >
       {data.fields.length === 0 && (
-        <p className="text-xs text-zinc-400">No fields yet — add a text or image input.</p>
+        <p className="text-xs text-zinc-400">
+          No fields yet — add a text or image input.
+        </p>
       )}
 
       {data.fields.map((field) => (
         <div key={field.id}>
           <div className="mb-1.5 flex items-center gap-1.5">
-            <GripVertical size={13} className="shrink-0 cursor-grab text-zinc-300" />
+            <GripVertical
+              size={13}
+              className="shrink-0 cursor-grab text-zinc-300"
+            />
             <input
               className="min-w-0 flex-1 truncate bg-transparent text-[12px] font-medium text-black outline-none"
               value={field.name}
               onChange={(e) => updateField(field.id, { name: e.target.value })}
             />
-           
-              <Tooltip text={FIELD_TOOLTIPS[field.type]} />
+
+            <Tooltip text={FIELD_TOOLTIPS[field.type]} />
 
             <button
               className="shrink-0 text-zinc-300 hover:text-zinc-600"
@@ -156,26 +182,43 @@ export function RequestInputsNode({ id, data , selected}: Props) {
               onChange={(e) => updateField(field.id, { value: e.target.value })}
             />
           ) : (
-            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2.5 text-xs text-zinc-400 hover:border-zinc-400">
+            <label className="relative flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-white px-2 py-2.5 text-xs text-zinc-400 hover:border-zinc-400">
               <input
                 type="file"
                 accept={ACCEPTED_IMAGE_TYPES}
                 className="hidden"
-                onChange={(e) => handleFileSelect(field.id, e.target.files?.[0])}
+                onChange={(e) =>
+                  handleFileSelect(field.id, e.target.files?.[0])
+                }
               />
               {uploadingFieldId === field.id ? (
                 <span className="flex items-center gap-1.5 text-zinc-500">
                   <Loader2 size={12} className="animate-spin" /> Uploading…
                 </span>
               ) : field.value ? (
-                <span className="flex min-w-0 items-center gap-2">
+                <span className="group relative inline-flex">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={field.value}
                     alt=""
-                    className="h-16 w-16 rounded object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    className="h-16 w-16 rounded object-contain border border-blue-200"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
                   />
+                  {/* X button — appears on hover, sits at top-right of the image */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      updateField(field.id, { value: "" });
+                    }}
+                    className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-zinc-800 text-white shadow group-hover:flex"
+                    aria-label="Remove image"
+                  >
+                    <X size={9} />
+                  </button>
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 text-zinc-500">
@@ -185,7 +228,12 @@ export function RequestInputsNode({ id, data , selected}: Props) {
             </label>
           )}
 
-          <OutputHandleRow nodeId={id} handleId={field.id} label="" dataType={field.type === "text_field" ? "text" : "image"} />
+          <OutputHandleRow
+            nodeId={id}
+            handleId={field.id}
+            label=""
+            dataType={field.type === "text_field" ? "text" : "image"}
+          />
         </div>
       ))}
     </NodeShell>
