@@ -12,6 +12,12 @@ export interface GeminiTaskOutput {
 export const geminiTask = task({
   id: "gemini-generate",
   maxDuration: 120,
+  retry: {
+    maxAttempts: 4,
+    minTimeoutInMs: 2000,
+    maxTimeoutInMs: 15000,
+    factor: 2,
+  },
   run: async (payload: GeminiTaskPayload): Promise<GeminiTaskOutput> => {
     const input = geminiPayloadSchema.parse(payload);
     const response = await runGemini({
