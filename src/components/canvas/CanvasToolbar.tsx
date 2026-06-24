@@ -19,6 +19,7 @@ export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { select
   const { zoom } = useViewport();
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
+  const autoArrange = useWorkflowStore((s) => s.autoArrange);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
   const shortcutsRef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,7 @@ export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { select
             <ShortcutRow keys="⌘ Z" label="Undo" />
             <ShortcutRow keys="⌘ ⇧ Z" label="Redo" />
             <ShortcutRow keys="Delete" label="Delete selection" />
+            <ShortcutRow keys="⇧ A" label="Auto-arrange" />
           </div>
         )}
       </div>
@@ -62,11 +64,11 @@ export function CanvasToolbar({ selectionMode, onToggleSelectionMode }: { select
       <span className="w-10 select-none text-center text-[11px] font-medium text-zinc-500">{Math.round(zoom * 100)}%</span>
       <ToolbarButton onClick={() => zoomIn()} icon={<ZoomIn size={15} />} label="Zoom in" />
       <ToolbarButton onClick={() => fitView({ duration: 200 })} icon={<Maximize2 size={15} />} label="Fit view" />
+      <ToolbarButton onClick={autoArrange} icon={<LayoutGrid size={15} />} label="Auto-arrange (Shift+A)" />
       <Divider />
       {/* Superseded by the standalone minimap toggle button next to the
           minimap itself (bottom-right) — kept here, disabled, rather than
           removed, per instruction. */}
-      <ToolbarButton onClick={() => {}} icon={<LayoutGrid size={15} />} label="Minimap toggle moved to bottom-right" disabled />
       <ToolbarButton onClick={onToggleSelectionMode} icon={<Move size={15} />} label="Selection mode (drag to multi-select)" active={selectionMode} />
     </div>
   );

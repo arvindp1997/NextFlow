@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -42,6 +42,7 @@ export function WorkflowCanvas() {
   const setSelectedEdges = useWorkflowStore((s) => s.setSelectedEdges);
   const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
   const duplicateNode = useWorkflowStore((s) => s.duplicateNode);
+  const autoArrange = useWorkflowStore((s) => s.autoArrange);
   const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
@@ -50,6 +51,22 @@ export function WorkflowCanvas() {
   const clipboardNodeId = useRef<string | null>(null);
   const [minimapVisible, setMinimapVisible] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
+
+  // Window-level Shift+A listener — React Flow's internal elements sometimes
+  // capture keyboard events before they reach our wrapper div's onKeyDown,
+  // so registering at the window level guarantees Shift+A always fires.
+  useEffect(() => {
+    function handleWindowKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isTyping = ["INPUT", "TEXTAREA"].includes(target.tagName) || target.isContentEditable;
+      if ((e.key === "A" || e.key === "a") && e.shiftKey && !isTyping) {
+        e.preventDefault();
+        autoArrange();
+      }
+    }
+    window.addEventListener("keydown", handleWindowKey);
+    return () => window.removeEventListener("keydown", handleWindowKey);
+  }, [autoArrange]);
 
   const onSelectionChange = useCallback(
     ({ nodes: selected, edges: selectedEdges }: OnSelectionChangeParams) => {
@@ -74,6 +91,9 @@ export function WorkflowCanvas() {
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (isTyping) return;
         deleteSelected();
+      } else if ((e.key === "A" || e.key === "a") && e.shiftKey && !isTyping) {
+        e.preventDefault();
+        autoArrange();
       } else if (meta && e.key.toLowerCase() === "c" && !isTyping) {
         const targetId = selectedNodeIds[0];
         if (targetId) clipboardNodeId.current = targetId;
@@ -84,7 +104,7 @@ export function WorkflowCanvas() {
         }
       }
     },
-    [undo, redo, deleteSelected, selectedNodeIds, duplicateNode]
+    [undo, redo, deleteSelected, selectedNodeIds, duplicateNode, autoArrange]
   );
 
   const dropPosition = useMemo(

@@ -51,6 +51,7 @@ interface WorkflowState {
   deleteSelected: () => void;
   setSelected: (ids: string[]) => void;
   setSelectedEdges: (ids: string[]) => void;
+  autoArrange: () => void;
   undo: () => void;
   redo: () => void;
   applyRunStatuses: (statuses: Record<string, "idle" | "pending" | "running" | "success" | "failed">) => void;
@@ -216,6 +217,95 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setSelected: (ids) => set({ selectedNodeIds: ids }),
   setSelectedEdges: (ids) => set({ selectedEdgeIds: ids }),
+
+  autoArrange: () => {
+    const { nodes, edges } = get();
+    if (nodes.length === 0) return;
+    pushHistory(get, set);
+
+    const H_GAP = 120;  // horizontal gap between columns
+    const V_GAP = 80;  // vertical gap between nodes in the same column
+
+    // Default fallback dimensions if a node hasn't been measured yet
+    const DEFAULT_W = 280;
+    const DEFAULT_H = 320;
+
+    function nodeW(id: string) {
+      const n = nodes.find((n) => n.id === id);
+      return (n as { measured?: { width?: number } })?.measured?.width ?? DEFAULT_W;
+    }
+    function nodeH(id: string) {
+      const n = nodes.find((n) => n.id === id);
+      return (n as { measured?: { height?: number } })?.measured?.height ?? DEFAULT_H;
+    }
+
+    // Build incoming-edge map: nodeId → set of upstream nodeIds
+    const deps = new Map<string, Set<string>>();
+    for (const n of nodes) deps.set(n.id, new Set());
+    for (const e of edges) deps.get(e.target)?.add(e.source);
+
+    // Assign each node a column = longest path from any root
+    const col = new Map<string, number>();
+    const visiting = new Set<string>();
+
+    function dfs(id: string): number {
+      if (col.has(id)) return col.get(id)!;
+      if (visiting.has(id)) return 0; // cycle guard
+      visiting.add(id);
+      const upstream = deps.get(id) ?? new Set();
+      const depth = upstream.size === 0
+        ? 0
+        : Math.max(...[...upstream].map((dep) => dfs(dep) + 1));
+      col.set(id, depth);
+      visiting.delete(id);
+      return depth;
+    }
+    for (const n of nodes) dfs(n.id);
+
+    // Group node IDs by column
+    const byCol = new Map<number, string[]>();
+    for (const [id, c] of col) {
+      if (!byCol.has(c)) byCol.set(c, []);
+      byCol.get(c)!.push(id);
+    }
+
+    const maxCol = Math.max(...col.values());
+
+    // Calculate each column's x position based on the max node width in the previous column
+    const colX: number[] = [];
+    let curX = 80;
+    for (let c = 0; c <= maxCol; c++) {
+      colX[c] = curX;
+      const ids = byCol.get(c) ?? [];
+      const maxW = ids.length > 0 ? Math.max(...ids.map(nodeW)) : DEFAULT_W;
+      curX += maxW + H_GAP;
+    }
+
+    // Calculate the tallest column total height for centering
+    const colTotalH = (c: number) => {
+      const ids = byCol.get(c) ?? [];
+      return ids.reduce((sum, id) => sum + nodeH(id) + V_GAP, 0) - V_GAP;
+    };
+    const maxColH = Math.max(...Array.from({ length: maxCol + 1 }, (_, c) => colTotalH(c)));
+    const midY = 80 + maxColH / 2;
+
+    // Assign final positions
+    const positions = new Map<string, { x: number; y: number }>();
+    for (let c = 0; c <= maxCol; c++) {
+      const ids = byCol.get(c) ?? [];
+      const totalH = colTotalH(c);
+      let y = midY - totalH / 2;
+      for (const id of ids) {
+        positions.set(id, { x: colX[c] ?? 80, y });
+        y += nodeH(id) + V_GAP;
+      }
+    }
+
+    set({
+      nodes: nodes.map((n) => ({ ...n, position: positions.get(n.id) ?? n.position })),
+      dirty: true,
+    });
+  },
 
   undo: () => {
     const { past } = get();
