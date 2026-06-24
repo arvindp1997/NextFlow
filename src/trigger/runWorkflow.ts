@@ -141,7 +141,15 @@ async function executeNode(
     } else if (node.type === "response") {
       result = input; // local-only, no Trigger.dev task
     } else {
-      result = {}; // request-inputs: local-only, output already seeded from field values
+      // request-inputs: local-only, output already seeded from field values.
+      // Save the actual field values as both inputs and output so the history
+      // panel can show what data was used (including image URLs).
+      const fieldValues = outputs[node.id] ?? {};
+      result = fieldValues;
+      await prisma.nodeRun.update({
+        where: { id: nodeRun.id },
+        data: { inputs: fieldValues as object },
+      });
     }
 
     outputs[node.id] = buildNodeOutput(node, result);
@@ -197,7 +205,17 @@ async function pollForOutput(runHandleId: string): Promise<unknown> {
     const run = await runs.retrieve(runHandleId);
     if (run.status === "COMPLETED") return run.output;
     if (["FAILED", "CRASHED", "CANCELED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"].includes(run.status)) {
-      throw new Error(`Task ${runHandleId} ended with status ${run.status}`);
+      // Surface the task's actual error (e.g. an API error message from
+      // Gemini/Transloadit/etc), not just the bare status — this is what
+      // shows up in the app's own history panel, so a failure should be
+      // debuggable there without needing the Trigger.dev dashboard.
+      const detail = (run as { error?: { message?: string; name?: string } }).error;
+      const detailMsg = detail?.message ?? detail?.name;
+      throw new Error(
+        detailMsg
+          ? `Task ${runHandleId} failed (${run.status}): ${detailMsg}`
+          : `Task ${runHandleId} ended with status ${run.status}`
+      );
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
