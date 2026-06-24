@@ -170,8 +170,12 @@ export function RequestInputsNode({ id, data , selected}: Props) {
               ) : field.value ? (
                 <span className="flex min-w-0 items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={field.value} alt="" className="h-6 w-6 rounded object-cover" />
-                  <span className="truncate text-zinc-600">{field.value.split("/").pop()}</span>
+                  <img
+                    src={field.value}
+                    alt=""
+                    className="h-16 w-16 rounded object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 text-zinc-500">
