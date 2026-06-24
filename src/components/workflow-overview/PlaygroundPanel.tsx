@@ -25,12 +25,15 @@ import {
 } from "@/lib/transloadit-upload";
 import { formatRelativeTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
+import type { NodeRunRecord } from "@/components/canvas/HistoryPanel";
+import { ChevronDown } from "lucide-react";
 
 interface RunRow {
   id: string;
   status: "RUNNING" | "SUCCESS" | "FAILED" | "PARTIAL" | "CANCELED";
   startedAt: string;
   durationMs?: number | null;
+  nodeRuns: NodeRunRecord[];
 }
 
 export function PlaygroundPanel({
@@ -316,28 +319,164 @@ export function PlaygroundPanel({
               </tr>
             ) : (
               runs.map((run) => (
-                <tr
-                  key={run.id}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="py-2.5 text-zinc-600">
-                    {formatRelativeTime(run.startedAt)}
-                  </td>
-                  <td className="py-2.5">
-                    <RunStatusBadge status={run.status} />
-                  </td>
-                  {/* Decorative — there's no real per-run credit accounting in the app. */}
-                  <td className="py-2.5 text-zinc-400">~0.01 M</td>
-                  <td className="py-2.5 text-right font-mono text-[11px] text-zinc-400">
-                    {run.id}
-                  </td>
-                </tr>
+                <PlaygroundRunRow key={run.id} run={run} />
               ))
             )}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function isImageUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  return (
+    /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(value) ||
+    value.includes("transloadit.com") ||
+    value.includes("tlcdn.com")
+  );
+}
+
+function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
+  if (typeof data !== "object" || data === null) {
+    return <code className="break-all">{String(data)}</code>;
+  }
+  const entries = Object.entries(data as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-1 space-y-1">
+      {entries.map(([key, val]) => (
+        <div key={key}>
+          <span className="text-zinc-400">{key}: </span>
+          {isImageUrl(val) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={val}
+              alt={key}
+              className="mt-1 max-h-24 rounded border border-border object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : typeof val === "string" && val.length > 120 ? (
+            <pre className="mt-0.5 max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-sans text-[10px]">
+              {val}
+            </pre>
+          ) : (
+            <code className="break-all">{JSON.stringify(val)}</code>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NodeStatusDot({ status }: { status: NodeRunRecord["status"] }) {
+  const colours: Record<NodeRunRecord["status"], string> = {
+    SUCCESS: "bg-green-500",
+    FAILED: "bg-red-500",
+    RUNNING: "bg-purple-500 animate-pulse",
+    PENDING: "bg-zinc-300",
+    SKIPPED: "bg-zinc-300",
+  };
+  return <span className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`} />;
+}
+
+function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    Object.keys(nodeRun.inputs ?? {}).length > 0 ||
+    (nodeRun.output !== null &&
+      nodeRun.output !== undefined &&
+      Object.keys(nodeRun.output as object).length > 0) ||
+    !!nodeRun.error;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-zinc-50">
+      <button
+        className="flex w-full items-center justify-between px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-100"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="flex items-center gap-2 text-[11px] text-zinc-700">
+          <NodeStatusDot status={nodeRun.status} />
+          {nodeRun.nodeLabel}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-[10px] text-zinc-400 capitalize">{nodeRun.status.toLowerCase()}</span>
+          {hasDetails && (
+            <ChevronDown
+              size={10}
+              className={`shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          )}
+        </span>
+      </button>
+      {open && hasDetails && (
+        <div className="space-y-1.5 border-t border-border px-2.5 pb-2 pt-1.5 text-[11px] text-zinc-500">
+          {Object.keys(nodeRun.inputs ?? {}).length > 0 && (
+            <div>
+              <span className="font-medium text-zinc-600">Inputs: </span>
+              <DataDisplay data={nodeRun.inputs} />
+            </div>
+          )}
+          {nodeRun.output !== null &&
+            nodeRun.output !== undefined &&
+            Object.keys(nodeRun.output as object).length > 0 && (
+              <div>
+                <span className="font-medium text-zinc-600">Output: </span>
+                <DataDisplay data={nodeRun.output as Record<string, unknown>} />
+              </div>
+            )}
+          {nodeRun.error && (
+            <div className="rounded-md bg-red-50 px-2 py-1.5 text-red-600">
+              <span className="font-medium">Error: </span>
+              {nodeRun.error}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlaygroundRunRow({ run }: { run: RunRow }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <tr
+        className="cursor-pointer border-b border-border last:border-0 hover:bg-zinc-50 transition-colors"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <td className="py-2.5 text-zinc-600">{formatRelativeTime(run.startedAt)}</td>
+        <td className="py-2.5">
+          <RunStatusBadge status={run.status} />
+        </td>
+        <td className="py-2.5 text-zinc-400">~0.01 M</td>
+        <td className="py-2.5 text-right">
+          <span className="flex items-center justify-end gap-1.5">
+            <span className="font-mono text-[11px] text-zinc-400">{run.id}</span>
+            {run.nodeRuns.length > 0 && (
+              <ChevronDown
+                size={11}
+                className={`shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+              />
+            )}
+          </span>
+        </td>
+      </tr>
+      {open && run.nodeRuns.length > 0 && (
+        <tr className="border-b border-border last:border-0 bg-zinc-50/50">
+          <td colSpan={4} className="px-3 py-2.5">
+            <div className="space-y-1.5">
+              {run.nodeRuns.map((nr) => (
+                <PlaygroundNodeRow key={nr.id} nodeRun={nr} />
+              ))}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
