@@ -11,6 +11,7 @@ import {
   Play,
   AlignLeft,
   ImageIcon,
+  X,
 } from "lucide-react";
 import type { FlowNode, FlowEdge } from "@/store/workflowStore";
 import type {
@@ -517,7 +518,7 @@ function InputField({
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong px-3 py-3 text-xs text-zinc-400 hover:border-zinc-400">
+        <label className="relative flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong px-3 py-3 text-xs text-zinc-400 hover:border-zinc-400">
           <input
             type="file"
             accept={ACCEPTED_IMAGE_TYPES}
@@ -529,16 +530,28 @@ function InputField({
               <Loader2 size={13} className="animate-spin" /> Uploading…
             </span>
           ) : value ? (
-            <span className="flex min-w-0 items-center gap-2">
+            <span className="group relative inline-flex">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={value}
                 alt=""
-                className="h-7 w-7 rounded object-cover"
+                className="h-36 w-36 rounded object-contain border border-blue-200"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
               />
-              <span className="truncate text-zinc-600">
-                {value.split("/").pop()}
-              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange("");
+                }}
+                className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-zinc-800 text-white shadow group-hover:flex"
+                aria-label="Remove image"
+              >
+                <X size={9} />
+              </button>
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-zinc-500">
