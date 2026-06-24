@@ -115,30 +115,94 @@ export function HistoryPanel({
 
 function NodeRunRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
   const [open, setOpen] = useState(false);
+  const hasDetails =
+    Object.keys(nodeRun.inputs ?? {}).length > 0 ||
+    (nodeRun.output !== null && nodeRun.output !== undefined && Object.keys(nodeRun.output as object).length > 0) ||
+    !!nodeRun.error;
+
   return (
-    <div className="rounded-lg bg-zinc-50">
-      <button className="flex w-full items-center justify-between px-2 py-1.5 text-left" onClick={() => setOpen((v) => !v)}>
+    <div className="overflow-hidden rounded-lg border border-border bg-zinc-50">
+      <button
+        className="flex w-full items-center justify-between px-2 py-1.5 text-left transition-colors hover:bg-zinc-100"
+        onClick={() => setOpen((v) => !v)}
+      >
         <span className="flex items-center gap-1.5 text-xs text-zinc-700">
           <RunStatusIcon status={nodeRun.status} small />
           {nodeRun.nodeLabel}
         </span>
-        <span className="text-[10px] text-zinc-400">{formatDuration(nodeRun.durationMs)}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-[10px] text-zinc-400">{formatDuration(nodeRun.durationMs)}</span>
+          {hasDetails && (
+            <ChevronDown
+              size={11}
+              className={`shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          )}
+        </span>
       </button>
-      {open && (
-        <div className="space-y-1.5 px-2 pb-2 text-[11px] text-zinc-500">
-          <div>
-            <span className="font-medium text-zinc-600">Inputs: </span>
-            <code className="break-all">{JSON.stringify(nodeRun.inputs)}</code>
-          </div>
-          {nodeRun.output !== undefined && (
+      {open && hasDetails && (
+        <div className="space-y-1.5 border-t border-border px-2 pb-2 pt-1.5 text-[11px] text-zinc-500">
+          {Object.keys(nodeRun.inputs ?? {}).length > 0 && (
             <div>
-              <span className="font-medium text-zinc-600">Output: </span>
-              <code className="break-all">{JSON.stringify(nodeRun.output)}</code>
+              <span className="font-medium text-zinc-600">Inputs: </span>
+              <DataDisplay data={nodeRun.inputs} />
             </div>
           )}
-          {nodeRun.error && <div className="text-red-600">Error: {nodeRun.error}</div>}
+          {nodeRun.output !== null && nodeRun.output !== undefined &&
+            Object.keys(nodeRun.output as object).length > 0 && (
+              <div>
+                <span className="font-medium text-zinc-600">Output: </span>
+                <DataDisplay data={nodeRun.output as Record<string, unknown>} />
+              </div>
+            )}
+          {nodeRun.error && (
+            <div className="rounded-md bg-red-50 px-2 py-1.5 text-red-600">
+              <span className="font-medium">Error: </span>{nodeRun.error}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function isImageUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(value) ||
+    value.includes("transloadit.com") ||
+    value.includes("tlcdn.com");
+}
+
+function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
+  if (typeof data !== "object" || data === null) {
+    return <code className="break-all">{String(data)}</code>;
+  }
+  const entries = Object.entries(data as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-1 space-y-1">
+      {entries.map(([key, val]) => (
+        <div key={key}>
+          <span className="text-zinc-400">{key}: </span>
+          {isImageUrl(val) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={val}
+              alt={key}
+              className="mt-1 max-h-24 rounded border border-border object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).replaceWith(
+                  Object.assign(document.createElement("code"), { textContent: val, className: "break-all" })
+                );
+              }}
+            />
+          ) : typeof val === "string" && val.length > 120 ? (
+            <pre className="mt-0.5 max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-sans text-[10px]">{val}</pre>
+          ) : (
+            <code className="break-all">{JSON.stringify(val)}</code>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
