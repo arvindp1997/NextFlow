@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MoreHorizontal, Pencil, Trash2, ExternalLink, Copy, Download } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, ExternalLink, Copy, Download, Loader2 } from "lucide-react";
 import { WorkflowThumbnail } from "@/components/dashboard/WorkflowThumbnail";
 import { formatRelativeTime } from "@/lib/utils";
 import type { WorkflowSummary } from "@/lib/types";
@@ -67,8 +67,21 @@ export function WorkflowCard({
         )}
       </div>
 
-      <div className="rounded-b-2xl  px-3 py-2.5 ">
-        <h3 className="truncate text-sm font-semibold text-zinc-900">{workflow.name}</h3>
+      <div className="rounded-b-2xl border-t border-border px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="min-w-0 truncate text-sm font-semibold text-zinc-900">{workflow.name}</h3>
+          {workflow.status === "RUNNING" && (
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+              <Loader2 size={9} className="animate-spin" /> Running
+            </span>
+          )}
+           {workflow.status === "IDLE" && (
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+               Idle
+            </span>
+          )}
+        </div>
+
         <span className="text-xs text-zinc-400">Edited {formatRelativeTime(workflow.lastEditedAt)}</span>
       </div>
     </div>
