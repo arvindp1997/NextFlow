@@ -135,7 +135,7 @@ function ResultCard({
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {resultImages.map((url, i) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={url + i} src={url} alt="" className="h-14 w-14 rounded-md border border-border object-cover" />
+              <img key={url + i} src={url} alt="" className="max-h-28 max-w-full rounded border border-border object-contain" />
             ))}
           </div>
         )}

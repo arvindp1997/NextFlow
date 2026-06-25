@@ -125,7 +125,7 @@ export function GeminiNode({ id, data, selected }: Props) {
         <div className="min-h-[56px] rounded-md border border-border bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600">
           {data.response ? <p className="whitespace-pre-wrap">{data.response}</p> : <span className="text-zinc-400">No output yet</span>}
         </div>
-        <Handle id="response" type="source" position={Position.Right} style={{ background: HANDLE_COLORS.text, right: -7 }} />
+        <Handle id="response" type="source" position={Position.Right} style={{ background: HANDLE_COLORS.text, right: -9 }} />
       </div>
     </NodeShell>
   );
@@ -135,7 +135,7 @@ function ImageVisionRow({ nodeId }: { nodeId: string }) {
   const images = useConnectedSourceImages(nodeId, "image_vision");
   return (
     <div className="relative">
-      <Handle id="image_vision" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -7 }} />
+      <Handle id="image_vision" type="target" position={Position.Left} style={{ background: HANDLE_COLORS.image, left: -9 }} />
       <label className="mb-1 flex items-center gap-1 text-[11px] font-normal text-zinc-800">
         Image (Vision)
         {images.length > 0 && <span className="ml-auto text-[10px] font-normal text-zinc-400">connected</span>}
@@ -144,7 +144,7 @@ function ImageVisionRow({ nodeId }: { nodeId: string }) {
         <div className="flex flex-wrap gap-1.5 rounded-md border border-border bg-white p-1.5">
           {images.map((url, i) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={url + i} src={url} alt="" className="h-12 w-12 rounded object-cover" />
+            <img key={url + i} src={url} alt="" className="max-h-28 max-w-full rounded border border-border object-contain" />
           ))}
         </div>
       ) : (
