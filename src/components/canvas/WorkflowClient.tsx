@@ -40,11 +40,11 @@ export function WorkflowClient({
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
-    "idle",
-  );
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [nameInput, setNameInput] = useState(name);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isRunning = runs[0]?.status === "RUNNING";
 
   // Initial load into the canvas store.
   useEffect(() => {
@@ -213,17 +213,19 @@ export function WorkflowClient({
               <Button
                 size="sm"
                 onClick={() => runWorkflow("partial", store.selectedNodeIds)}
+                disabled={isRunning}
               >
                 <Play size={13} /> Run Selected ({selectedCount})
               </Button>
             )}
-            <Tooltip label="Run workflow" side="bottom">
+            <Tooltip label={isRunning ? "Workflow is running…" : "Run workflow"} side="bottom">
               <button
                 onClick={() => runWorkflow("full")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                disabled={isRunning}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Run workflow"
               >
-                <Play size={14} fill="currentColor" />
+                {isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} fill="currentColor" />}
               </button>
             </Tooltip>
             {!historyOpen && (
