@@ -65,11 +65,13 @@ export function PlaygroundPanel({
   const [runSearch, setRunSearch] = useState("");
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Disable Run button if the local run state is active OR if the latest run
+  // in history is still RUNNING (e.g. started from the canvas editor tab).
+  const isRunning = running || runs[0]?.status === "RUNNING";
+
   const filteredRuns = useMemo(() => {
     const searchTerm = runSearch.trim().toLowerCase();
-
     if (!searchTerm) return runs;
-
     return runs.filter((r) => r.id.toLowerCase().includes(searchTerm));
   }, [runs, runSearch]);
 
@@ -108,13 +110,9 @@ export function PlaygroundPanel({
   }
 
   async function handleRun() {
-    if (!requestInputsNode || running) return;
+    if (!requestInputsNode || isRunning) return;
     setRunning(true);
     try {
-      // Write the Playground's input values onto the Request-Inputs node and
-      // save, exactly like typing into that node on the canvas would — the
-      // run endpoint always executes whatever's currently persisted, there's
-      // no separate "ad-hoc input override" path.
       const updatedNodes = nodes.map((n) =>
         n.id === requestInputsNode.id
           ? {
@@ -143,10 +141,6 @@ export function PlaygroundPanel({
       });
       refreshHistory();
 
-      // Poll until the run finishes, then pull the fresh node data (each
-      // node's own data.response / data.outputImageUrl gets updated by the
-      // run) so the Output panel can render the same way ResponseNode does
-      // on the canvas.
       if (pollTimer.current) clearInterval(pollTimer.current);
       pollTimer.current = setInterval(async () => {
         const res = await fetch(`/api/workflows/${workflowId}/history`);
@@ -189,7 +183,6 @@ export function PlaygroundPanel({
                 Configure the input fields for this workflow run
               </p>
             </div>
-            {/* Decorative, same caveat as the Est/Bal badges in the editor header. */}
             <span className="rounded-md border border-border bg-zinc-50 px-2 py-1 text-[11px] font-medium text-zinc-500">
               Est ~0.01 M
             </span>
@@ -223,15 +216,15 @@ export function PlaygroundPanel({
 
           <button
             onClick={handleRun}
-            disabled={!requestInputsNode || running}
+            disabled={!requestInputsNode || isRunning}
             className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {running ? (
+            {isRunning ? (
               <Loader2 size={15} className="animate-spin" />
             ) : (
               <Play size={14} fill="currentColor" />
             )}
-            {running ? "Running…" : "Run"}
+            {isRunning ? "Running…" : "Run"}
           </button>
         </div>
 
@@ -260,9 +253,6 @@ export function PlaygroundPanel({
                       ? sourceNode.data.outputImageUrl
                       : undefined;
 
-                // Images fed into this Gemini node via image_vision handle —
-                // same logic as useConnectedSourceImages in the canvas editor,
-                // but using the local nodes/edges arrays instead of the store.
                 const sourceImages: string[] =
                   sourceNode.data.kind === "gemini"
                     ? edges
@@ -295,7 +285,6 @@ export function PlaygroundPanel({
                       {label}
                     </div>
                     <div className="min-h-[44px] px-2.5 py-2 text-xs text-zinc-600">
-                      {/* Images shown above text — matches canvas ResponseNode behaviour */}
                       {sourceImages.length > 0 && (
                         <div className="mb-2 flex flex-row gap-1.5">
                           {sourceImages.map((url, i) => (
@@ -660,6 +649,7 @@ function InputField({
     </div>
   );
 }
+
 function EmptyOutput() {
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
