@@ -121,23 +121,36 @@ function ResultCard({
       </div>
 
       <div className="min-h-[44px] px-2.5 py-2 text-xs text-zinc-600">
+        {/* Images that were fed into this Gemini node — shown above the text
+            response so users can see the source images alongside the output. */}
+        {resultImages.length > 0 && (
+          <div className="mb-2 flex flex-col gap-1.5">
+            {resultImages.map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={url + i}
+                src={url}
+                alt=""
+                className="max-h-36 w-full rounded-md border border-border object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            ))}
+          </div>
+        )}
         {value ? (
           sourceNode.data.kind === "crop-image" && typeof value === "string" ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="max-h-32 rounded object-contain" />
+            <img
+              src={value}
+              alt=""
+              className="max-h-36 w-full rounded object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
           ) : (
             <pre className="whitespace-pre-wrap break-words font-sans">{typeof value === "string" ? value : JSON.stringify(value)}</pre>
           )
         ) : (
-          <span className="text-zinc-400">No output yet</span>
-        )}
-        {resultImages.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {resultImages.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={url + i} src={url} alt="" className="max-h-28 max-w-full rounded border border-border object-contain" />
-            ))}
-          </div>
+          resultImages.length === 0 && <span className="text-zinc-400">No output yet</span>
         )}
       </div>
     </div>

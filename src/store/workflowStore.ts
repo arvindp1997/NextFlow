@@ -349,10 +349,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (results[n.id] === undefined) return n;
         const r = results[n.id] as Record<string, unknown>;
         if (n.data.kind === "crop-image") {
-          // nodeRun.output stores the Crop Image task's raw return shape
-          // ({ outputImageUrl }), not the internal "output_image" handle-id
-          // naming used by the DAG resolver in src/lib/graph.ts.
-          return { ...n, data: { ...n.data, outputImageUrl: r.outputImageUrl as string } };
+          // buildNodeOutput stores the URL under the handle-id key "output_image".
+          // The NodeRun.output field therefore has shape { output_image: url }.
+          // We also accept "outputImageUrl" as a fallback for runs recorded
+          // before this fix, where the crop task's raw return value was saved directly.
+          const url = (r.output_image ?? r.outputImageUrl) as string | undefined;
+          if (!url) return n;
+          return { ...n, data: { ...n.data, outputImageUrl: url } };
         }
         if (n.data.kind === "gemini") {
           return { ...n, data: { ...n.data, response: r.response as string } };

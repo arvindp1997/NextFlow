@@ -184,7 +184,21 @@ function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
       {entries.map(([key, val]) => (
         <div key={key}>
           <span className="text-zinc-400">{key}: </span>
-          {isImageUrl(val) ? (
+          {/* Array of image URLs (e.g. imageUrls from Gemini inputs) */}
+          {Array.isArray(val) && val.length > 0 && val.every((v) => isImageUrl(v)) ? (
+            <div className="mt-1 flex flex-col gap-1">
+              {val.map((url: string, i: number) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={url + i}
+                  src={url}
+                  alt=""
+                  className="max-h-24 w-full rounded border border-border object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              ))}
+            </div>
+          ) : isImageUrl(val) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={val}
@@ -198,6 +212,8 @@ function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
             />
           ) : typeof val === "string" && val.length > 120 ? (
             <pre className="mt-0.5 max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-sans text-[10px]">{val}</pre>
+          ) : Array.isArray(val) ? (
+            <code className="break-all">{JSON.stringify(val)}</code>
           ) : (
             <code className="break-all">{JSON.stringify(val)}</code>
           )}

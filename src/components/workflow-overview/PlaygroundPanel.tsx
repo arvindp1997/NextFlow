@@ -311,10 +311,7 @@ export function PlaygroundPanel({
               </button>
             </div>
             <div className="relative">
-              <Search
-                size={12}
-                className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
-              />
+              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search by Run ID…"
@@ -388,7 +385,20 @@ function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
       {entries.map(([key, val]) => (
         <div key={key}>
           <span className="text-zinc-400">{key}: </span>
-          {isImageUrl(val) ? (
+          {Array.isArray(val) && val.length > 0 && val.every((v) => isImageUrl(v)) ? (
+            <div className="mt-1 flex flex-col gap-1">
+              {val.map((url: string, i: number) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={url + i}
+                  src={url}
+                  alt=""
+                  className="max-h-24 w-full rounded border border-border object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              ))}
+            </div>
+          ) : isImageUrl(val) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={val}
@@ -419,11 +429,7 @@ function NodeStatusDot({ status }: { status: NodeRunRecord["status"] }) {
     PENDING: "bg-zinc-300",
     SKIPPED: "bg-zinc-300",
   };
-  return (
-    <span
-      className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`}
-    />
-  );
+  return <span className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`} />;
 }
 
 function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
@@ -446,9 +452,7 @@ function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
           {nodeRun.nodeLabel}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="text-[10px] text-zinc-400 capitalize">
-            {nodeRun.status.toLowerCase()}
-          </span>
+          <span className="text-[10px] text-zinc-400 capitalize">{nodeRun.status.toLowerCase()}</span>
           {hasDetails && (
             <ChevronDown
               size={10}
@@ -493,18 +497,14 @@ function PlaygroundRunRow({ run }: { run: RunRow }) {
         className="cursor-pointer border-b border-border last:border-0 hover:bg-zinc-50 transition-colors"
         onClick={() => setOpen((v) => !v)}
       >
-        <td className="py-2.5 text-zinc-600">
-          {formatRelativeTime(run.startedAt)}
-        </td>
+        <td className="py-2.5 text-zinc-600">{formatRelativeTime(run.startedAt)}</td>
         <td className="py-2.5">
           <RunStatusBadge status={run.status} />
         </td>
         <td className="py-2.5 text-zinc-400">~0.01 M</td>
         <td className="py-2.5 text-right">
           <span className="flex items-center justify-end gap-1.5">
-            <span className="font-mono text-[11px] text-zinc-400">
-              {run.id}
-            </span>
+            <span className="font-mono text-[11px] text-zinc-400">{run.id}</span>
             {run.nodeRuns.length > 0 && (
               <ChevronDown
                 size={11}
