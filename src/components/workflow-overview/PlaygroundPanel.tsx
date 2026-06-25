@@ -259,6 +259,33 @@ export function PlaygroundPanel({
                     : sourceNode.data.kind === "crop-image"
                       ? sourceNode.data.outputImageUrl
                       : undefined;
+
+                // Images fed into this Gemini node via image_vision handle —
+                // same logic as useConnectedSourceImages in the canvas editor,
+                // but using the local nodes/edges arrays instead of the store.
+                const sourceImages: string[] =
+                  sourceNode.data.kind === "gemini"
+                    ? edges
+                        .filter(
+                          (e) =>
+                            e.target === sourceNode.id &&
+                            (e.targetHandle ?? "") === "image_vision",
+                        )
+                        .flatMap((e) => {
+                          const imgSrc = nodes.find((n) => n.id === e.source);
+                          if (!imgSrc) return [];
+                          if (imgSrc.data.kind === "crop-image" && imgSrc.data.outputImageUrl)
+                            return [imgSrc.data.outputImageUrl];
+                          if (imgSrc.data.kind === "request-inputs") {
+                            const field = imgSrc.data.fields.find(
+                              (f) => f.id === (e.sourceHandle ?? ""),
+                            );
+                            return field?.value ? [String(field.value)] : [];
+                          }
+                          return [];
+                        })
+                    : [];
+
                 return (
                   <div
                     key={edge.id}
@@ -268,6 +295,23 @@ export function PlaygroundPanel({
                       {label}
                     </div>
                     <div className="min-h-[44px] px-2.5 py-2 text-xs text-zinc-600">
+                      {/* Images shown above text — matches canvas ResponseNode behaviour */}
+                      {sourceImages.length > 0 && (
+                        <div className="mb-2 flex flex-row gap-1.5">
+                          {sourceImages.map((url, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={url + i}
+                              src={url}
+                              alt=""
+                              className="max-h-20 w-full rounded-md border border-border object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       {value ? (
                         sourceNode.data.kind === "crop-image" &&
                         typeof value === "string" ? (
@@ -275,7 +319,10 @@ export function PlaygroundPanel({
                           <img
                             src={value}
                             alt=""
-                            className="max-h-40 rounded object-contain"
+                            className="max-h-36 w-full rounded object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
                           />
                         ) : (
                           <pre className="whitespace-pre-wrap break-words font-sans">
@@ -285,7 +332,9 @@ export function PlaygroundPanel({
                           </pre>
                         )
                       ) : (
-                        <span className="text-zinc-400">No output yet</span>
+                        sourceImages.length === 0 && (
+                          <span className="text-zinc-400">No output yet</span>
+                        )
                       )}
                     </div>
                   </div>
