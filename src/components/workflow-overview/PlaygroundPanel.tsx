@@ -174,8 +174,8 @@ export function PlaygroundPanel({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto pl-10 pr-10">
-      <div className="grid h-[800px] shrink-0 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]">
-        <div className="flex flex-col rounded-2xl border border-border bg-white p-4">
+      <div className="grid h-[800px] shrink-0 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]" style={{ gridAutoRows: '1fr' }}>
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white p-4">
           <div className="mb-3 flex items-start justify-between">
             <div>
               <h2 className="text-sm font-semibold text-zinc-900">Inputs</h2>
@@ -196,7 +196,7 @@ export function PlaygroundPanel({
               This workflow has no input fields defined.
             </p>
           ) : (
-            <div className="mb-4 space-y-4">
+            <div className="mb-4 flex-1 overflow-y-auto space-y-4">
               {(requestInputsNode.data as RequestInputsNodeData).fields.map(
                 (field) => (
                   <InputField
@@ -228,13 +228,14 @@ export function PlaygroundPanel({
           </button>
         </div>
 
-        <div className="rounded-2xl border border-border bg-white p-4">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white p-4">
           <h2 className="text-sm font-semibold text-zinc-900">Output</h2>
           <p className="mb-3 text-xs text-zinc-400">
             Results from workflow execution
           </p>
           <hr className="mb-4 w-full border-border" />
 
+          <div className="flex-1 overflow-y-auto">
           {resultEdges.length === 0 ? (
             <EmptyOutput />
           ) : (
@@ -331,6 +332,7 @@ export function PlaygroundPanel({
               })}
             </div>
           )}
+          </div>
         </div>
       </div>
 

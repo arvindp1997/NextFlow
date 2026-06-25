@@ -139,7 +139,25 @@ async function executeNode(
       triggerRunId = handle.id;
       result = await pollForOutput(handle.id);
     } else if (node.type === "response") {
-      result = input; // local-only, no Trigger.dev task
+      // Collect images that fed into the upstream Gemini node(s) so the
+      // history panel can display them when this Response row is expanded.
+      // Walk: Response ← result edge ← Gemini ← image_vision edges ← CropImage
+      const sourceImages: string[] = [];
+      const resultEdges = edges.filter(
+        (e) => e.target === node.id && (e.targetHandle ?? "") === "result"
+      );
+      for (const re of resultEdges) {
+        const visionEdges = edges.filter(
+          (e) => e.target === re.source && (e.targetHandle ?? "") === "image_vision"
+        );
+        for (const ve of visionEdges) {
+          const cropOut = outputs[ve.source] as { output_image?: string } | undefined;
+          if (cropOut?.output_image) sourceImages.push(cropOut.output_image);
+        }
+      }
+      result = sourceImages.length > 0
+        ? { ...(input as object), sourceImages }
+        : input; // local-only, no Trigger.dev task
     } else {
       // request-inputs: local-only, output already seeded from field values.
       // Save the actual field values as both inputs and output so the history
