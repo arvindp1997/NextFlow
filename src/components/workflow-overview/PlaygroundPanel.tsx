@@ -29,6 +29,7 @@ import { formatRelativeTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import type { NodeRunRecord } from "@/components/canvas/HistoryPanel";
 import { ChevronDown } from "lucide-react";
+import { Tooltip } from "../canvas/Tooltip";
 
 interface RunRow {
   id: string;
@@ -68,6 +69,14 @@ export function PlaygroundPanel({
   // Disable Run button if the local run state is active OR if the latest run
   // in history is still RUNNING (e.g. started from the canvas editor tab).
   const isRunning = running || runs[0]?.status === "RUNNING";
+
+  // Validate all request-inputs fields have values before allowing a run.
+  const emptyFields = requestInputsNode
+    ? (requestInputsNode.data as RequestInputsNodeData).fields.filter(
+        (f) => !fieldValues[f.id] || String(fieldValues[f.id]).trim() === "",
+      )
+    : [];
+  const hasEmptyFields = emptyFields.length > 0;
 
   const filteredRuns = useMemo(() => {
     const searchTerm = runSearch.trim().toLowerCase();
@@ -110,7 +119,7 @@ export function PlaygroundPanel({
   }
 
   async function handleRun() {
-    if (!requestInputsNode || isRunning) return;
+    if (!requestInputsNode || isRunning || hasEmptyFields) return;
     setRunning(true);
     try {
       const updatedNodes = nodes.map((n) =>
@@ -172,9 +181,27 @@ export function PlaygroundPanel({
       )
     : [];
 
+  const runButton = (
+    <button
+      onClick={handleRun}
+      disabled={!requestInputsNode || isRunning || hasEmptyFields}
+      className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {isRunning ? (
+        <Loader2 size={15} className="animate-spin" />
+      ) : (
+        <Play size={14} fill="currentColor" />
+      )}
+      {isRunning ? "Running…" : "Run"}
+    </button>
+  );
+
   return (
     <div className="flex h-full flex-col overflow-y-auto pl-10 pr-10">
-      <div className="grid h-[800px] shrink-0 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]" style={{ gridAutoRows: '1fr' }}>
+      <div
+        className="grid h-[800px] shrink-0 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]"
+        style={{ gridAutoRows: "1fr" }}
+      >
         <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white p-4">
           <div className="mb-3 flex items-start justify-between">
             <div>
@@ -213,19 +240,17 @@ export function PlaygroundPanel({
               )}
             </div>
           )}
-
-          <button
-            onClick={handleRun}
-            disabled={!requestInputsNode || isRunning}
-            className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isRunning ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Play size={14} fill="currentColor" />
-            )}
-            {isRunning ? "Running…" : "Run"}
-          </button>
+          {hasEmptyFields ? (
+            <Tooltip
+              label={`Fill in required fields:\n${emptyFields
+                .map((f) => f.name)
+                .join(", ")}`}
+            >
+              {runButton}
+            </Tooltip>
+          ) : (
+            runButton
+          )}
         </div>
 
         <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white p-4">
@@ -236,102 +261,107 @@ export function PlaygroundPanel({
           <hr className="mb-4 w-full border-border" />
 
           <div className="flex-1 overflow-y-auto">
-          {resultEdges.length === 0 ? (
-            <EmptyOutput />
-          ) : (
-            <div className="space-y-2.5">
-              {resultEdges.map((edge) => {
-                const sourceNode = nodes.find((n) => n.id === edge.source);
-                if (!sourceNode) return null;
-                const label =
-                  (responseNode?.data as ResponseNodeData | undefined)
-                    ?.resultLabels?.[edge.id] ??
-                  slugifyLabel(nodeDisplayLabel(sourceNode.data));
-                const value =
-                  sourceNode.data.kind === "gemini"
-                    ? sourceNode.data.response
-                    : sourceNode.data.kind === "crop-image"
-                      ? sourceNode.data.outputImageUrl
-                      : undefined;
+            {resultEdges.length === 0 ? (
+              <EmptyOutput />
+            ) : (
+              <div className="space-y-2.5">
+                {resultEdges.map((edge) => {
+                  const sourceNode = nodes.find((n) => n.id === edge.source);
+                  if (!sourceNode) return null;
+                  const label =
+                    (responseNode?.data as ResponseNodeData | undefined)
+                      ?.resultLabels?.[edge.id] ??
+                    slugifyLabel(nodeDisplayLabel(sourceNode.data));
+                  const value =
+                    sourceNode.data.kind === "gemini"
+                      ? sourceNode.data.response
+                      : sourceNode.data.kind === "crop-image"
+                        ? sourceNode.data.outputImageUrl
+                        : undefined;
 
-                const sourceImages: string[] =
-                  sourceNode.data.kind === "gemini"
-                    ? edges
-                        .filter(
-                          (e) =>
-                            e.target === sourceNode.id &&
-                            (e.targetHandle ?? "") === "image_vision",
-                        )
-                        .flatMap((e) => {
-                          const imgSrc = nodes.find((n) => n.id === e.source);
-                          if (!imgSrc) return [];
-                          if (imgSrc.data.kind === "crop-image" && imgSrc.data.outputImageUrl)
-                            return [imgSrc.data.outputImageUrl];
-                          if (imgSrc.data.kind === "request-inputs") {
-                            const field = imgSrc.data.fields.find(
-                              (f) => f.id === (e.sourceHandle ?? ""),
-                            );
-                            return field?.value ? [String(field.value)] : [];
-                          }
-                          return [];
-                        })
-                    : [];
+                  const sourceImages: string[] =
+                    sourceNode.data.kind === "gemini"
+                      ? edges
+                          .filter(
+                            (e) =>
+                              e.target === sourceNode.id &&
+                              (e.targetHandle ?? "") === "image_vision",
+                          )
+                          .flatMap((e) => {
+                            const imgSrc = nodes.find((n) => n.id === e.source);
+                            if (!imgSrc) return [];
+                            if (
+                              imgSrc.data.kind === "crop-image" &&
+                              imgSrc.data.outputImageUrl
+                            )
+                              return [imgSrc.data.outputImageUrl];
+                            if (imgSrc.data.kind === "request-inputs") {
+                              const field = imgSrc.data.fields.find(
+                                (f) => f.id === (e.sourceHandle ?? ""),
+                              );
+                              return field?.value ? [String(field.value)] : [];
+                            }
+                            return [];
+                          })
+                      : [];
 
-                return (
-                  <div
-                    key={edge.id}
-                    className="overflow-hidden rounded-xl border border-border"
-                  >
-                    <div className="border-b border-border bg-zinc-50 px-2.5 py-1.5 text-[12px] font-medium text-zinc-700">
-                      {label}
-                    </div>
-                    <div className="min-h-[44px] px-2.5 py-2 text-xs text-zinc-600">
-                      {sourceImages.length > 0 && (
-                        <div className="mb-2 flex flex-row gap-1.5">
-                          {sourceImages.map((url, i) => (
+                  return (
+                    <div
+                      key={edge.id}
+                      className="overflow-hidden rounded-xl border border-border"
+                    >
+                      <div className="border-b border-border bg-zinc-50 px-2.5 py-1.5 text-[12px] font-medium text-zinc-700">
+                        {label}
+                      </div>
+                      <div className="min-h-[44px] px-2.5 py-2 text-xs text-zinc-600">
+                        {sourceImages.length > 0 && (
+                          <div className="mb-2 flex flex-row gap-1.5">
+                            {sourceImages.map((url, i) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={url + i}
+                                src={url}
+                                alt=""
+                                className="max-h-20 w-full rounded-md border border-border object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display =
+                                    "none";
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {value ? (
+                          sourceNode.data.kind === "crop-image" &&
+                          typeof value === "string" ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              key={url + i}
-                              src={url}
+                              src={value}
                               alt=""
-                              className="max-h-20 w-full rounded-md border border-border object-contain"
+                              className="max-h-36 w-full rounded object-contain"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
                               }}
                             />
-                          ))}
-                        </div>
-                      )}
-                      {value ? (
-                        sourceNode.data.kind === "crop-image" &&
-                        typeof value === "string" ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={value}
-                            alt=""
-                            className="max-h-36 w-full rounded object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
-                            }}
-                          />
+                          ) : (
+                            <pre className="whitespace-pre-wrap break-words font-sans">
+                              {typeof value === "string"
+                                ? value
+                                : JSON.stringify(value)}
+                            </pre>
+                          )
                         ) : (
-                          <pre className="whitespace-pre-wrap break-words font-sans">
-                            {typeof value === "string"
-                              ? value
-                              : JSON.stringify(value)}
-                          </pre>
-                        )
-                      ) : (
-                        sourceImages.length === 0 && (
-                          <span className="text-zinc-400">No output yet</span>
-                        )
-                      )}
+                          sourceImages.length === 0 && (
+                            <span className="text-zinc-400">No output yet</span>
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -351,7 +381,10 @@ export function PlaygroundPanel({
               </button>
             </div>
             <div className="relative">
-              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              <Search
+                size={12}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+              />
               <input
                 type="text"
                 placeholder="Search by Run ID…"
@@ -425,7 +458,9 @@ function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
       {entries.map(([key, val]) => (
         <div key={key}>
           <span className="text-zinc-400">{key}: </span>
-          {Array.isArray(val) && val.length > 0 && val.every((v) => isImageUrl(v)) ? (
+          {Array.isArray(val) &&
+          val.length > 0 &&
+          val.every((v) => isImageUrl(v)) ? (
             <div className="mt-1 flex flex-col gap-1">
               {val.map((url: string, i: number) => (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -434,7 +469,9 @@ function DataDisplay({ data }: { data: Record<string, unknown> | unknown }) {
                   src={url}
                   alt=""
                   className="max-h-24 w-full rounded border border-border object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
                 />
               ))}
             </div>
@@ -469,7 +506,11 @@ function NodeStatusDot({ status }: { status: NodeRunRecord["status"] }) {
     PENDING: "bg-zinc-300",
     SKIPPED: "bg-zinc-300",
   };
-  return <span className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`} />;
+  return (
+    <span
+      className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${colours[status]}`}
+    />
+  );
 }
 
 function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
@@ -492,7 +533,9 @@ function PlaygroundNodeRow({ nodeRun }: { nodeRun: NodeRunRecord }) {
           {nodeRun.nodeLabel}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="text-[10px] text-zinc-400 capitalize">{nodeRun.status.toLowerCase()}</span>
+          <span className="text-[10px] text-zinc-400 capitalize">
+            {nodeRun.status.toLowerCase()}
+          </span>
           {hasDetails && (
             <ChevronDown
               size={10}
@@ -537,14 +580,18 @@ function PlaygroundRunRow({ run }: { run: RunRow }) {
         className="cursor-pointer border-b border-border last:border-0 hover:bg-zinc-50 transition-colors"
         onClick={() => setOpen((v) => !v)}
       >
-        <td className="py-2.5 text-zinc-600">{formatRelativeTime(run.startedAt)}</td>
+        <td className="py-2.5 text-zinc-600">
+          {formatRelativeTime(run.startedAt)}
+        </td>
         <td className="py-2.5">
           <RunStatusBadge status={run.status} />
         </td>
         <td className="py-2.5 text-zinc-400">~0.01 M</td>
         <td className="py-2.5 text-right">
           <span className="flex items-center justify-end gap-1.5">
-            <span className="font-mono text-[11px] text-zinc-400">{run.id}</span>
+            <span className="font-mono text-[11px] text-zinc-400">
+              {run.id}
+            </span>
             {run.nodeRuns.length > 0 && (
               <ChevronDown
                 size={11}
@@ -599,14 +646,16 @@ function InputField({
       </div>
       {field.type === "text_field" ? (
         <textarea
-          className="w-full resize-y rounded-lg border border-border px-3 py-2 text-sm text-zinc-700 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-300"
+          className={`w-full resize-y rounded-lg border px-3 py-2 text-sm text-zinc-700 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-300 ${!value || value.trim() === "" ? "border-red-300" : "border-border"}`}
           rows={3}
           placeholder={`Enter ${field.name}…`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <label className="relative flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong px-3 py-3 text-xs text-zinc-400 hover:border-zinc-400">
+        <label
+          className={`relative flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-3 text-xs text-zinc-400 hover:border-zinc-400 ${!value ? "border-red-300" : "border-border-strong"}`}
+        >
           <input
             type="file"
             accept={ACCEPTED_IMAGE_TYPES}

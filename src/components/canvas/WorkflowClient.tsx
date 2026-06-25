@@ -23,6 +23,7 @@ import {
   type FlowNode,
   type FlowEdge,
 } from "@/store/workflowStore";
+import type { RequestInputsNodeData } from "@/lib/types";
 import { useRunRequestStore } from "@/store/runRequestStore";
 
 export function WorkflowClient({
@@ -45,6 +46,21 @@ export function WorkflowClient({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isRunning = runs[0]?.status === "RUNNING";
+
+  // Validate that all request-inputs fields have values before allowing a run.
+  const storeNodes = useWorkflowStore((s) => s.nodes);
+  const requestInputsNode = storeNodes.find((n) => n.data.kind === "request-inputs");
+  const emptyFields = requestInputsNode
+    ? (requestInputsNode.data as RequestInputsNodeData).fields.filter(
+        (f) => !f.value || String(f.value).trim() === ""
+      )
+    : [];
+  const hasEmptyFields = emptyFields.length > 0;
+  const emptyFieldsTooltip = hasEmptyFields
+    ? `Fill in required fields:\n${emptyFields.map((f) => f.name).join(", ")}`
+    : isRunning
+    ? "Workflow is running…"
+    : "Run workflow";
 
   // Initial load into the canvas store.
   useEffect(() => {
@@ -218,10 +234,10 @@ export function WorkflowClient({
                 <Play size={13} /> Run Selected ({selectedCount})
               </Button>
             )}
-            <Tooltip label={isRunning ? "Workflow is running…" : "Run workflow"} side="bottom">
+            <Tooltip label={emptyFieldsTooltip} side="bottom">
               <button
                 onClick={() => runWorkflow("full")}
-                disabled={isRunning}
+                disabled={isRunning || hasEmptyFields}
                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Run workflow"
               >
