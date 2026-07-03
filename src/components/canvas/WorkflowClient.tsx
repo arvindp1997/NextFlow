@@ -44,6 +44,10 @@ export function WorkflowClient({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [nameInput, setNameInput] = useState(name);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks whether the debounced autosave below still needs to fire for the
+  // current edits. Read by runWorkflow() so a Run click can flush it first
+  // instead of racing it — see persistWorkflow/runWorkflow.
+  const pendingSaveRef = useRef(false);
 
   const isRunning = runs[0]?.status === "RUNNING";
 
@@ -68,6 +72,25 @@ export function WorkflowClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId]);
 
+  // Persists whatever is CURRENTLY in the canvas store to the DB, right now
+  // (no debounce). Pulled out of the autosave effect so runWorkflow() can
+  // also call it directly before triggering a run.
+  const persistWorkflow = useCallback(async () => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const state = useWorkflowStore.getState();
+    setSaveState("saving");
+    await fetch(`/api/workflows/${workflowId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nodes: state.nodes, edges: state.edges }),
+    });
+    pendingSaveRef.current = false;
+    setSaveState("saved");
+  }, [workflowId]);
+
   // Debounced autosave whenever the canvas is marked dirty.
   useEffect(() => {
     const unsub = useWorkflowStore.subscribe((state, prev) => {
@@ -77,18 +100,12 @@ export function WorkflowClient({
       )
         return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      pendingSaveRef.current = true;
       setSaveState("saving");
-      saveTimer.current = setTimeout(async () => {
-        await fetch(`/api/workflows/${workflowId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nodes: state.nodes, edges: state.edges }),
-        });
-        setSaveState("saved");
-      }, 900);
+      saveTimer.current = setTimeout(persistWorkflow, 900);
     });
     return unsub;
-  }, [workflowId]);
+  }, [persistWorkflow]);
 
   const refreshHistory = useCallback(async () => {
     const res = await fetch(`/api/workflows/${workflowId}/history`);
@@ -129,6 +146,17 @@ export function WorkflowClient({
       scope: "full" | "partial" | "single",
       targetNodeIds: string[] = [],
     ) => {
+      // The /run route reads node data straight from the DB, but node edits
+      // (slider drags, a fresh image upload, etc.) only reach the DB via the
+      // 900ms-debounced autosave above. Without this flush, clicking Run
+      // shortly after an edit executes against a stale snapshot — the crop
+      // node's server-side output then won't match what's shown in the
+      // canvas preview (and, if this node feeds a Response node directly,
+      // the Response card renders whatever stale/missing value came back).
+      // Flushing here guarantees the server always sees the latest state.
+      if (pendingSaveRef.current) {
+        await persistWorkflow();
+      }
       await fetch(`/api/workflows/${workflowId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,7 +164,7 @@ export function WorkflowClient({
       });
       refreshHistory();
     },
-    [workflowId, refreshHistory],
+    [workflowId, refreshHistory, persistWorkflow],
   );
 
   const cancelRun = useCallback(

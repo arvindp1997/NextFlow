@@ -126,6 +126,7 @@ export function buildSampleWorkflow() {
     edge("crop2-to-final", "crop-2", "output_image", "gemini-final", "image_vision"),
     edge("gemini2-to-final", "gemini-2", "response", "gemini-final", "prompt"),
     edge("final-to-response", "gemini-final", "response", "response", "result"),
+    edge("crop2-to-response", "crop-2", "output_image", "response", "result"),
   ];
 
   return { nodes, edges };
