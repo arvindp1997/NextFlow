@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
-import { createWorkflowSchema } from "@/lib/validation";
+import { createWorkflowSchema, validateGraphHandles } from "@/lib/validation";
+import { hasCycle } from "@/lib/graph";
 import { buildSampleWorkflow } from "@/lib/sample-workflow";
 
 export async function GET() {
@@ -44,6 +45,16 @@ export async function POST(req: Request) {
     const isImportAttempt = typeof body === "object" && body !== null && ("nodes" in body || "edges" in body);
     if (isImportAttempt && (!parsed.data.nodes || !parsed.data.edges)) {
       return NextResponse.json({ error: "Import payload is missing valid nodes/edges" }, { status: 400 });
+    }
+
+    if (parsed.data.nodes && parsed.data.edges) {
+      if (hasCycle(parsed.data.nodes as never, parsed.data.edges as never)) {
+        return NextResponse.json({ error: "Workflow graph contains a cycle; cycles are not allowed" }, { status: 400 });
+      }
+      const handleErrors = validateGraphHandles(parsed.data.nodes as never, parsed.data.edges as never);
+      if (handleErrors.length > 0) {
+        return NextResponse.json({ error: "Invalid edges", details: handleErrors }, { status: 400 });
+      }
     }
 
     const requestInputsNode = {

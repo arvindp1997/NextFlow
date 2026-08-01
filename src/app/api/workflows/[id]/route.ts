@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, UnauthorizedError } from "@/lib/auth";
-import { saveWorkflowSchema, renameWorkflowSchema } from "@/lib/validation";
+import { saveWorkflowSchema, renameWorkflowSchema, validateGraphHandles } from "@/lib/validation";
 import { hasCycle } from "@/lib/graph";
 
 async function getOwnedWorkflow(userId: string, id: string) {
@@ -47,6 +47,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (hasCycle(parsed.data.nodes as never, parsed.data.edges as never)) {
       return NextResponse.json({ error: "Workflow graph contains a cycle; cycles are not allowed" }, { status: 400 });
+    }
+
+    const handleErrors = validateGraphHandles(parsed.data.nodes as never, parsed.data.edges as never);
+    if (handleErrors.length > 0) {
+      return NextResponse.json({ error: "Invalid edges", details: handleErrors }, { status: 400 });
     }
 
     const workflow = await prisma.workflow.update({
