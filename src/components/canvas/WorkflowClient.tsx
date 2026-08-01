@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { ReactFlowProvider } from "@xyflow/react";
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import {
   ArrowLeft,
   Play,
@@ -26,6 +27,12 @@ import {
 import type { RequestInputsNodeData } from "@/lib/types";
 import { useRunRequestStore } from "@/store/runRequestStore";
 
+interface ActiveRun {
+  runId: string;
+  triggerRunId: string;
+  publicAccessToken: string;
+}
+
 export function WorkflowClient({
   workflowId,
   name,
@@ -40,6 +47,10 @@ export function WorkflowClient({
   const store = useWorkflowStore();
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  // The run currently being watched via Trigger.dev Realtime (useRealtimeRun
+  // below) — set right after POST /run, or re-derived from the history
+  // endpoint on load if a run was already in flight (e.g. page refresh).
+  const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [nameInput, setNameInput] = useState(name);
@@ -107,12 +118,25 @@ export function WorkflowClient({
     return unsub;
   }, [persistWorkflow]);
 
+  // Fetches the run list from Postgres (full inputs/outputs/durations for
+  // the History panel). Called once on mount, once right after a run is
+  // kicked off, and once when the active run settles — never on an
+  // interval; live in-progress status comes from the Realtime subscription
+  // below instead.
   const refreshHistory = useCallback(async () => {
     const res = await fetch(`/api/workflows/${workflowId}/history`);
     if (!res.ok) return;
-    const { runs: fetched } = (await res.json()) as { runs: RunRecord[] };
+    const { runs: fetched, activeRun: fetchedActiveRun } = (await res.json()) as {
+      runs: RunRecord[];
+      activeRun: ActiveRun | null;
+    };
     setRuns(fetched);
     setHistoryLoading(false);
+
+    // Resume Realtime for a run that was already in flight when this page
+    // loaded (e.g. the user refreshed mid-run) instead of only ever being
+    // able to attach right after this tab's own POST /run.
+    setActiveRun((current) => current ?? fetchedActiveRun ?? null);
 
     const latest = fetched[0];
     if (latest) {
@@ -122,11 +146,8 @@ export function WorkflowClient({
       > = {};
       const resultMap: Record<string, unknown> = {};
       for (const nr of latest.nodeRuns) {
-        statusMap[nr.nodeId] = nr.status.toLowerCase() as
-          | "pending"
-          | "running"
-          | "success"
-          | "failed";
+        const status = nr.status.toLowerCase();
+        statusMap[nr.nodeId] = status === "skipped" ? "failed" : (status as "pending" | "running" | "success" | "failed");
         if (nr.output !== undefined && nr.output !== null)
           resultMap[nr.nodeId] = nr.output;
       }
@@ -137,8 +158,27 @@ export function WorkflowClient({
 
   useEffect(() => {
     refreshHistory();
-    const interval = setInterval(refreshHistory, 2000);
-    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId]);
+
+  // Applies the live per-node status pushed over Trigger.dev Realtime
+  // (run.metadata.nodeStatuses, set by runWorkflowTask — see
+  // src/trigger/runWorkflow.ts) directly to the canvas, so nodes light up
+  // as they actually start/finish with no DB round-trip in the loop.
+  const applyLiveNodeStatuses = useCallback((statuses: Record<string, string>) => {
+    const statusMap: Record<string, "idle" | "pending" | "running" | "success" | "failed"> = {};
+    for (const [nodeId, status] of Object.entries(statuses)) {
+      statusMap[nodeId] = status === "skipped" ? "failed" : (status as "pending" | "running" | "success" | "failed");
+    }
+    useWorkflowStore.getState().applyRunStatuses(statusMap);
+  }, []);
+
+  // Once the watched run reaches a terminal state, pull the full record
+  // (durations, inputs/outputs, error messages) for the History panel and
+  // stop watching.
+  const handleRunSettled = useCallback(() => {
+    setActiveRun(null);
+    refreshHistory();
   }, [refreshHistory]);
 
   const runWorkflow = useCallback(
@@ -157,11 +197,15 @@ export function WorkflowClient({
       if (pendingSaveRef.current) {
         await persistWorkflow();
       }
-      await fetch(`/api/workflows/${workflowId}/run`, {
+      const res = await fetch(`/api/workflows/${workflowId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scope, targetNodeIds }),
       });
+      if (res.ok) {
+        const data = (await res.json()) as { runId: string; triggerRunId: string; publicAccessToken: string };
+        setActiveRun(data);
+      }
       refreshHistory();
     },
     [workflowId, refreshHistory, persistWorkflow],
@@ -172,6 +216,7 @@ export function WorkflowClient({
       await fetch(`/api/workflows/${workflowId}/run/${runId}/cancel`, {
         method: "POST",
       });
+      setActiveRun(null);
       refreshHistory();
     },
     [workflowId, refreshHistory],
@@ -199,6 +244,13 @@ export function WorkflowClient({
 
   return (
     <div className="flex h-screen">
+      {activeRun && (
+        <RunRealtimeSync
+          activeRun={activeRun}
+          onNodeStatuses={applyLiveNodeStatuses}
+          onSettled={handleRunSettled}
+        />
+      )}
       <Sidebar defaultCollapsed persist={false} />
       <div className="relative h-screen flex-1 bg-canvas">
         {/* Full-height canvas underneath everything — the header and the
@@ -301,6 +353,39 @@ export function WorkflowClient({
       )}
     </div>
   );
+}
+
+/**
+ * Headless: subscribes to the orchestrator run via Trigger.dev Realtime
+ * (useRealtimeRun) and forwards live node-status updates + the terminal
+ * "done" event up to WorkflowClient. Split into its own component only
+ * because the hook needs a stable runId/token to subscribe with, and those
+ * are `null` whenever no run is active — cleaner as a component that
+ * mounts/unmounts than a hook called conditionally.
+ */
+function RunRealtimeSync({
+  activeRun,
+  onNodeStatuses,
+  onSettled,
+}: {
+  activeRun: ActiveRun;
+  onNodeStatuses: (statuses: Record<string, string>) => void;
+  onSettled: () => void;
+}) {
+  const { run } = useRealtimeRun(activeRun.triggerRunId, {
+    accessToken: activeRun.publicAccessToken,
+    onComplete: () => onSettled(),
+  });
+
+  useEffect(() => {
+    const statuses = (run?.metadata as { nodeStatuses?: Record<string, string> } | undefined)?.nodeStatuses;
+    if (statuses) onNodeStatuses(statuses);
+    // run.metadata is a new object reference on every update from the hook,
+    // so this effect naturally re-fires on each Realtime push.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.metadata]);
+
+  return null;
 }
 
 function SaveIndicator({ state }: { state: "idle" | "saving" | "saved" }) {
