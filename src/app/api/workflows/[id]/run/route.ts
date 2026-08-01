@@ -46,7 +46,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     await prisma.run.update({ where: { id: run.id }, data: { triggerRunId: handle.id } });
 
-    return NextResponse.json({ runId: run.id, triggerRunId: handle.id }, { status: 202 });
+    return NextResponse.json(
+      { runId: run.id, triggerRunId: handle.id, publicAccessToken: handle.publicAccessToken },
+      { status: 202 }
+    );
   } catch (err) {
     if (err instanceof UnauthorizedError) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.json({ error: "Failed to start run" }, { status: 500 });
