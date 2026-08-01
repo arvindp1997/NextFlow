@@ -1,4 +1,4 @@
-import { task } from "@trigger.dev/sdk/v3";
+import { task, wait } from "@trigger.dev/sdk/v3";
 import { cropImagePayloadSchema } from "@/lib/validation";
 import { z } from "zod";
 
@@ -17,6 +17,9 @@ export interface CropImageOutput {
  * MANDATORY per spec: this task must take at least 30 seconds before
  * resolving, regardless of how fast FFmpeg actually finishes. This is a
  * deliberate artificial delay requested by the assignment — do not remove it.
+ * Implemented with Trigger.dev's `wait.for()` (not `setTimeout`) so the run
+ * is actually checkpointed/paused for the duration instead of holding the
+ * worker hot.
  */
 export const cropImageTask = task({
   id: "crop-image",
@@ -32,7 +35,7 @@ export const cropImageTask = task({
     const MIN_DURATION_MS = 30_000;
     const elapsed = Date.now() - startedAt;
     if (elapsed < MIN_DURATION_MS) {
-      await new Promise((resolve) => setTimeout(resolve, MIN_DURATION_MS - elapsed));
+      await wait.for({ seconds: Math.ceil((MIN_DURATION_MS - elapsed) / 1000) });
     }
 
     return { outputImageUrl };
@@ -112,6 +115,9 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
   const authSecret = process.env.TRANSLOADIT_AUTH_SECRET;
   if (!authKey || !authSecret) throw new Error("Transloadit credentials are not set");
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL must be set so Transloadit can call back");
+
   const { Transloadit } = await import("transloadit");
   const { Readable } = await import("node:stream");
   const client = new Transloadit({ authKey, authSecret });
@@ -120,24 +126,33 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
   // otherwise) — a single ":original"/"/upload/handle" step with nothing
   // else is the documented minimal "just accept the upload" pattern, no
   // permanent storage destination/credentials required.
-  // createAssembly() returns as soon as the raw upload finishes by default
-  // (waitForCompletion: false) — before the assembly has actually processed
-  // and registered the file under `uploads`/`results`. waitForCompletion:
-  // true makes the SDK poll internally and return the fully-finished
-  // assembly status instead, which is what actually has the file's URL.
-  const result = await client.createAssembly({
+  //
+  // Rather than `waitForCompletion: true` (which makes the SDK poll the
+  // assembly status internally under the hood), we create a Trigger.dev
+  // waitpoint token, pass its id to Transloadit via `notify_url`, and
+  // `wait.forToken()` for it. Transloadit POSTs the finished assembly to
+  // our webhook (src/app/api/webhooks/transloadit-crop) as soon as
+  // processing completes, which resolves the token — no polling anywhere
+  // in this path, and the run is actually paused/checkpointed while it
+  // waits instead of holding the worker hot.
+  const token = await wait.createToken({ timeout: "5m" });
+  const notifyUrl = `${appUrl}/api/webhooks/transloadit-crop?token=${token.id}`;
+
+  await client.createAssembly({
     params: {
       steps: {
         ":original": { robot: "/upload/handle" },
       },
+      notify_url: notifyUrl,
     },
     uploads: { input: Readable.from(buffer) },
-    waitForCompletion: true,
+    waitForCompletion: false,
   });
 
-  const fromResults = result.results?.[":original"]?.[0] as { ssl_url?: string; url?: string } | undefined;
-  const fromUploads = result.uploads?.[0] as { ssl_url?: string | null; url?: string | null } | undefined;
-  const url = fromResults?.ssl_url ?? fromResults?.url ?? fromUploads?.ssl_url ?? fromUploads?.url;
-  if (!url) throw new Error("Transloadit assembly did not return an uploaded file URL");
-  return url;
+  const result = await wait.forToken<{ ok: boolean; url?: string; error?: string }>(token);
+  if (!result.ok) throw new Error("Timed out waiting for Transloadit assembly to complete");
+  if (!result.output.ok || !result.output.url) {
+    throw new Error(result.output.error ?? "Transloadit assembly did not return an uploaded file URL");
+  }
+  return result.output.url;
 }
