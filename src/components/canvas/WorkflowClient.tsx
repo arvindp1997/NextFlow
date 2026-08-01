@@ -161,22 +161,49 @@ export function WorkflowClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId]);
 
+  // Debounce timer for the Realtime-triggered history refetch below —
+  // coalesces a burst of metadata events (several nodes transitioning close
+  // together) into a single fetch, and gives the NodeRun row's own DB write
+  // (issued right around the same time as the metadata push, see
+  // executeNode() in src/trigger/runWorkflow.ts) a brief moment to land
+  // before we read it back.
+  const historyRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (historyRefreshTimer.current) clearTimeout(historyRefreshTimer.current);
+    };
+  }, []);
+
   // Applies the live per-node status pushed over Trigger.dev Realtime
   // (run.metadata.nodeStatuses, set by runWorkflowTask — see
   // src/trigger/runWorkflow.ts) directly to the canvas, so nodes light up
-  // as they actually start/finish with no DB round-trip in the loop.
+  // as they actually start/finish with no DB round-trip in the loop. The
+  // History sidebar reads from Postgres (it needs full inputs/outputs, not
+  // just a status label), so each metadata event also schedules a single
+  // debounced refetch — reactive to this real event, not a fixed interval.
   const applyLiveNodeStatuses = useCallback((statuses: Record<string, string>) => {
     const statusMap: Record<string, "idle" | "pending" | "running" | "success" | "failed"> = {};
     for (const [nodeId, status] of Object.entries(statuses)) {
       statusMap[nodeId] = status === "skipped" ? "failed" : (status as "pending" | "running" | "success" | "failed");
     }
     useWorkflowStore.getState().applyRunStatuses(statusMap);
-  }, []);
+
+    if (historyRefreshTimer.current) clearTimeout(historyRefreshTimer.current);
+    historyRefreshTimer.current = setTimeout(() => {
+      historyRefreshTimer.current = null;
+      refreshHistory();
+    }, 400);
+  }, [refreshHistory]);
 
   // Once the watched run reaches a terminal state, pull the full record
   // (durations, inputs/outputs, error messages) for the History panel and
   // stop watching.
   const handleRunSettled = useCallback(() => {
+    if (historyRefreshTimer.current) {
+      clearTimeout(historyRefreshTimer.current);
+      historyRefreshTimer.current = null;
+    }
     setActiveRun(null);
     refreshHistory();
   }, [refreshHistory]);
