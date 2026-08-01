@@ -1,4 +1,4 @@
-import { task, tasks } from "@trigger.dev/sdk/v3";
+import { task, tasks, metadata } from "@trigger.dev/sdk/v3";
 import { prisma } from "@/lib/prisma";
 import {
   buildDependencyGraph,
@@ -31,6 +31,20 @@ export const runWorkflowTask = task({
     const executionSet = resolveExecutionSet(nodes, edges, payload.scope, payload.targetNodeIds);
     const deps = buildDependencyGraph(nodes, edges);
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
+
+    // Trigger.dev Realtime: the frontend subscribes to this run (via
+    // useRealtimeRun) and reads `run.metadata.nodeStatuses` to light up
+    // nodes on the canvas live, with zero DB/API polling. This is set once
+    // up front (every targeted node starts "pending") and patched again at
+    // every state transition below.
+    const nodeStatuses: Record<string, NodeOutcome | "pending" | "running"> = {};
+    for (const id of executionSet) nodeStatuses[id] = "pending";
+    metadata.set("nodeStatuses", nodeStatuses);
+
+    function publishStatus(nodeId: string, status: NodeOutcome | "running") {
+      nodeStatuses[nodeId] = status;
+      metadata.set("nodeStatuses", { ...nodeStatuses });
+    }
 
     // Seed outputs with every node's last-known value so that dependencies
     // which are NOT being re-executed (single/multi-select scope) still
@@ -71,18 +85,22 @@ export const runWorkflowTask = task({
         if (upstreamBlocked) {
           await recordSkipped(runId, node);
           outcomes.set(nodeId, "skipped");
+          publishStatus(nodeId, "skipped");
           return;
         }
 
+        publishStatus(nodeId, "running");
         try {
           await executeNode(runId, node, edges, outputs);
           outcomes.set(nodeId, "success");
+          publishStatus(nodeId, "success");
         } catch (err) {
           // executeNode already persisted the FAILED NodeRun row with the
           // error message — swallow it here so this node's own promise
           // still resolves and the run can keep going / finish.
           console.error(`Node ${nodeId} (${node.type}) failed:`, err);
           outcomes.set(nodeId, "failed");
+          publishStatus(nodeId, "failed");
         }
       })();
 
@@ -130,14 +148,14 @@ async function executeNode(
         input as CropImagePayload
       );
       triggerRunId = handle.id;
-      result = await pollForOutput(handle.id);
+      result = await subscribeForOutput(handle.id);
     } else if (node.type === "gemini") {
       const handle = await tasks.trigger<typeof import("@/trigger/gemini").geminiTask>(
         "gemini-generate",
         input as GeminiTaskPayload
       );
       triggerRunId = handle.id;
-      result = await pollForOutput(handle.id);
+      result = await subscribeForOutput(handle.id);
     } else if (node.type === "response") {
       // Collect images that fed into the upstream Gemini node(s) so the
       // history panel can display them when this Response row is expanded.
@@ -214,15 +232,35 @@ async function recordSkipped(runId: string, node: FlowNode): Promise<void> {
   });
 }
 
-/** Polls Trigger.dev's run handle until the underlying task completes. */
-async function pollForOutput(runHandleId: string): Promise<unknown> {
+const TERMINAL_FAILURE_STATUSES = new Set([
+  "FAILED",
+  "CRASHED",
+  "CANCELED",
+  "SYSTEM_FAILURE",
+  "TIMED_OUT",
+  "EXPIRED",
+]);
+
+/**
+ * Waits for a child task run to finish using Trigger.dev Realtime
+ * (`runs.subscribeToRun`) instead of a `runs.retrieve()` polling loop. This
+ * opens a push-based subscription that yields a new value only when the
+ * run's state actually changes, and resolves the moment a terminal status
+ * arrives — no fixed-interval retrieve calls.
+ *
+ * Deliberately NOT `triggerAndWait` here: multiple sibling nodes in the DAG
+ * are waited on concurrently via `Promise.all` in `runNode` above, and
+ * Trigger.dev's `triggerAndWait`/wait primitives are explicitly not
+ * supported inside a `Promise.all` (they checkpoint the parent run on a
+ * single waitpoint). `subscribeToRun` has no such restriction, so it's what
+ * keeps the DAG's parallel fan-out working while still being fully
+ * Realtime-driven rather than polling.
+ */
+async function subscribeForOutput(runHandleId: string): Promise<unknown> {
   const { runs } = await import("@trigger.dev/sdk/v3");
-  const POLL_INTERVAL_MS = 1000;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const run = await runs.retrieve(runHandleId);
+  for await (const run of runs.subscribeToRun(runHandleId)) {
     if (run.status === "COMPLETED") return run.output;
-    if (["FAILED", "CRASHED", "CANCELED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"].includes(run.status)) {
+    if (TERMINAL_FAILURE_STATUSES.has(run.status)) {
       // Surface the task's actual error (e.g. an API error message from
       // Gemini/Transloadit/etc), not just the bare status — this is what
       // shows up in the app's own history panel, so a failure should be
@@ -235,8 +273,8 @@ async function pollForOutput(runHandleId: string): Promise<unknown> {
           : `Task ${runHandleId} ended with status ${run.status}`
       );
     }
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
+  throw new Error(`Realtime subscription for run ${runHandleId} ended without a terminal status`);
 }
 
 function labelFor(node: FlowNode): string {
