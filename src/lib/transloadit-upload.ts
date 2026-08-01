@@ -13,25 +13,74 @@ export async function uploadImageViaTransloadit(file: File): Promise<string> {
     const body = await assemblyRes.json().catch(() => null);
     throw new Error(body?.message ?? "Transloadit assembly creation failed");
   }
-  let assembly = await assemblyRes.json();
+  const assembly = await assemblyRes.json();
 
-  const assemblyId: string = assembly.assembly_id;
-  // Poll the generic endpoint rather than the instance-specific
-  // assembly_ssl_url (e.g. api2-hu115ap.transloadit.com) — Transloadit's own
-  // docs note instances cycle quickly and recommend falling back to
-  // api2.transloadit.com, which is also just more reliably reachable from a
-  // browser in general.
-  const statusUrl = `https://api2.transloadit.com/assemblies/${assemblyId}`;
-  while (assembly.ok !== "ASSEMBLY_COMPLETED") {
-    if (assembly.error) throw new Error(assembly.message ?? "Transloadit assembly failed");
-    await new Promise((r) => setTimeout(r, 600));
-    const poll = await fetch(statusUrl);
-    assembly = await poll.json();
+  if (assembly.error) throw new Error(assembly.message ?? "Transloadit assembly failed");
+  if (assembly.ok === "ASSEMBLY_COMPLETED") {
+    const url = extractFileUrl(assembly);
+    if (!url) throw new Error("Upload completed but no file URL was returned");
+    return url;
   }
 
-  const url = extractFileUrl(assembly);
-  if (!url) throw new Error("Upload completed but no file URL was returned");
-  return url;
+  // Rather than polling the status endpoint on an interval, connect to the
+  // assembly's own Socket.IO push channel (`websocket_url`, returned on
+  // every assembly response) and wait for it to tell us the assembly is
+  // done — one request in, one event back, no repeated GETs in between.
+  return waitForAssemblyViaSocket(assembly);
+}
+
+async function waitForAssemblyViaSocket(assembly: Record<string, unknown>): Promise<string> {
+  const websocketUrl = assembly.websocket_url as string | undefined;
+  const assemblyId = assembly.assembly_id as string;
+  const statusUrl = `https://api2.transloadit.com/assemblies/${assemblyId}`;
+
+  if (!websocketUrl) {
+    // Extremely unlikely (Transloadit always returns this), but fall back
+    // to a single status check rather than throwing outright.
+    const res = await fetch(statusUrl);
+    const url = extractFileUrl(await res.json());
+    if (!url) throw new Error("Upload completed but no file URL was returned");
+    return url;
+  }
+
+  const { io } = await import("socket.io-client");
+
+  return new Promise<string>((resolve, reject) => {
+    const socket = io(websocketUrl, { transports: ["websocket", "polling"] });
+
+    const cleanup = () => socket.disconnect();
+
+    socket.on("connect", () => {
+      socket.emit("assembly_connect", { id: assemblyId });
+    });
+
+    socket.on("assembly_finished", async () => {
+      try {
+        // The push event just tells us processing is done; one fetch here
+        // gets the canonical, fully-populated status payload (file URLs
+        // etc) — a single request triggered by the event, not a loop.
+        const res = await fetch(statusUrl);
+        const finalAssembly = await res.json();
+        const url = extractFileUrl(finalAssembly);
+        cleanup();
+        if (!url) reject(new Error("Upload completed but no file URL was returned"));
+        else resolve(url);
+      } catch (err) {
+        cleanup();
+        reject(err instanceof Error ? err : new Error("Failed to read completed assembly"));
+      }
+    });
+
+    socket.on("assembly_error", (err: { message?: string } | undefined) => {
+      cleanup();
+      reject(new Error(err?.message ?? "Transloadit assembly failed"));
+    });
+
+    socket.on("connect_error", (err: Error) => {
+      cleanup();
+      reject(new Error(`Could not connect to Transloadit realtime status: ${err.message}`));
+    });
+  });
 }
 
 /**
