@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/Badge";
 import type { NodeRunRecord } from "@/components/canvas/HistoryPanel";
 import { ChevronDown } from "lucide-react";
 import { Tooltip } from "../canvas/Tooltip";
+import { RunRealtimeSync, type ActiveRun } from "@/components/canvas/RunRealtimeSync";
 
 interface RunRow {
   id: string;
@@ -64,7 +65,16 @@ export function PlaygroundPanel({
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [historyTab, setHistoryTab] = useState<"ui" | "api">("ui");
   const [runSearch, setRunSearch] = useState("");
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The run currently being watched via Trigger.dev Realtime (RunRealtimeSync
+  // below) — set right after POST /run. Replaces the previous 2s
+  // setInterval poll of /history entirely.
+  const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
+  // Debounces the history refetch triggered by each Realtime status event —
+  // coalesces a burst of node transitions into one fetch and gives the
+  // NodeRun row's own DB write a brief moment to land before reading it
+  // back. See src/components/canvas/WorkflowClient.tsx for the identical
+  // pattern used on the canvas editor side.
+  const historyRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Disable Run button if the local run state is active OR if the latest run
   // in history is still RUNNING (e.g. started from the canvas editor tab).
@@ -101,9 +111,40 @@ export function PlaygroundPanel({
 
   useEffect(() => {
     return () => {
-      if (pollTimer.current) clearInterval(pollTimer.current);
+      if (historyRefreshTimer.current) clearTimeout(historyRefreshTimer.current);
     };
   }, []);
+
+  // Schedules a debounced history refetch — called by RunRealtimeSync on
+  // every genuine node-status change (already deduped against stream
+  // heartbeats there).
+  const scheduleHistoryRefresh = useCallback(() => {
+    if (historyRefreshTimer.current) clearTimeout(historyRefreshTimer.current);
+    historyRefreshTimer.current = setTimeout(() => {
+      historyRefreshTimer.current = null;
+      refreshHistory();
+    }, 400);
+  }, [refreshHistory]);
+
+  // Once the watched run reaches a terminal state: stop watching, pull the
+  // final history record, and reload the workflow's nodes/edges (a full
+  // run may have written new outputImageUrl/response values onto node data
+  // that this tab's local `nodes`/`edges` state doesn't have yet).
+  const handleRunSettled = useCallback(async () => {
+    if (historyRefreshTimer.current) {
+      clearTimeout(historyRefreshTimer.current);
+      historyRefreshTimer.current = null;
+    }
+    setActiveRun(null);
+    await refreshHistory();
+    const wfRes = await fetch(`/api/workflows/${workflowId}`);
+    if (wfRes.ok) {
+      const wfJson = await wfRes.json();
+      setNodes(wfJson.workflow.nodes);
+      setEdges(wfJson.workflow.edges);
+    }
+    setRunning(false);
+  }, [workflowId, refreshHistory]);
 
   async function handleFileSelect(fieldId: string, file: File | undefined) {
     if (!file) return;
@@ -143,31 +184,19 @@ export function PlaygroundPanel({
       });
       setNodes(updatedNodes);
 
-      await fetch(`/api/workflows/${workflowId}/run`, {
+      const runRes = await fetch(`/api/workflows/${workflowId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scope: "full", targetNodeIds: [] }),
       });
       refreshHistory();
 
-      if (pollTimer.current) clearInterval(pollTimer.current);
-      pollTimer.current = setInterval(async () => {
-        const res = await fetch(`/api/workflows/${workflowId}/history`);
-        if (!res.ok) return;
-        const json = await res.json();
-        const latest = json.runs?.[0];
-        setRuns(json.runs ?? []);
-        if (latest && latest.status !== "RUNNING") {
-          if (pollTimer.current) clearInterval(pollTimer.current);
-          const wfRes = await fetch(`/api/workflows/${workflowId}`);
-          if (wfRes.ok) {
-            const wfJson = await wfRes.json();
-            setNodes(wfJson.workflow.nodes);
-            setEdges(wfJson.workflow.edges);
-          }
-          setRunning(false);
-        }
-      }, 2000);
+      if (runRes.ok) {
+        const data = (await runRes.json()) as ActiveRun;
+        setActiveRun(data);
+      } else {
+        setRunning(false);
+      }
     } catch (err) {
       console.error("Run failed:", err);
       setRunning(false);
@@ -198,6 +227,13 @@ export function PlaygroundPanel({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto pl-10 pr-10">
+      {activeRun && (
+        <RunRealtimeSync
+          activeRun={activeRun}
+          onNodeStatuses={scheduleHistoryRefresh}
+          onSettled={handleRunSettled}
+        />
+      )}
       <div
         className="grid h-[800px] shrink-0 grid-cols-1 gap-4 p-4 md:grid-cols-[3fr_7fr]"
         style={{ gridAutoRows: "1fr" }}

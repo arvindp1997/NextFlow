@@ -20,7 +20,7 @@ After signing in, users land on `/dashboard`. This page fetches all workflows ow
 
 This is the non-technical entry point to a workflow. It has three tabs:
 
-- **Playground** — fill in the workflow's input fields (text or image) and click Run. The panel saves the values, fires the workflow, polls for completion, and shows the output without ever touching the canvas. Run history table below the output shows every past run with node-level expansion — click any run row to see per-node status, inputs, outputs, and errors. Image URL outputs are rendered as actual image previews.
+- **Playground** — fill in the workflow's input fields (text or image) and click Run. The panel saves the values, fires the workflow, watches it via a Trigger.dev Realtime subscription (no polling), and shows the output without ever touching the canvas. Run history table below the output shows every past run with node-level expansion — click any run row to see per-node status, inputs, outputs, and errors. Image URL outputs are rendered as actual image previews.
 - **API** — placeholder tab for future API-trigger documentation.
 - **Workflow** — a read-only preview of the canvas, showing the full node graph exactly as it was built, with no editing capability.
 
@@ -53,6 +53,8 @@ POST /api/workflows/[id]/run
     │  Validates request (Zod)
     │  Fetches workflow from Postgres
     │  Calls resolveExecutionSet() → determines which nodes to run
+    │  tasks.trigger(run-workflow, ..., { publicAccessToken: { expirationTime: "1h" } })
+    │  Returns { runId, triggerRunId, publicAccessToken }
     │
     ▼
 Trigger.dev: run-workflow task enqueued
@@ -62,12 +64,19 @@ Orchestrator (src/trigger/runWorkflow.ts)
     │  Builds dependency graph (topological sort)
     │  Runs independent nodes concurrently (Promise per node)
     │  Each node awaits only its direct upstream dependencies
+    │  metadata.set("nodeStatuses", {...}) on every node state transition
     │
     ├── request-inputs node   → reads saved field values from data
-    ├── crop-image task       → calls Transloadit robot pipeline
-    │                           enforces 30s minimum duration
+    ├── crop-image task       → tasks.trigger + runs.subscribeToRun (Realtime, not polling)
+    │                           calls Transloadit robot pipeline
+    │                           enforces 30s minimum via wait.for({ seconds })
+    │                           uploads via wait.createToken/forToken + a notify_url
+    │                             webhook (src/app/api/webhooks/transloadit-crop),
+    │                             instead of the Transloadit SDK's internal-polling
+    │                             waitForCompletion mode
     │                           saves outputImageUrl back to node data
-    ├── gemini-generate task  → calls Google Generative AI SDK
+    ├── gemini-generate task  → tasks.trigger + runs.subscribeToRun (Realtime, not polling)
+    │                           calls Google Generative AI SDK
     │                           accepts prompt + system prompt + image URLs
     │                           retries up to 4× on 503 (10s→20s→40s→60s backoff)
     │                           aborts immediately on 429 quota errors
@@ -81,9 +90,14 @@ NodeRun records written to Postgres after each node
     │  error  = full error message if failed
     │
     ▼
-Frontend polls GET /api/workflows/[id]/history every 2s
-    │  Applies per-node run statuses → pulsing border on canvas nodes
-    │  Applies node outputs → results visible inside each node
+Frontend subscribes via useRealtimeRun(triggerRunId, { accessToken: publicAccessToken })
+    │  Reads run.metadata.nodeStatuses live → drives the pulsing-glow border
+    │    on canvas nodes directly, no DB round-trip in that path
+    │  Each genuine status change (deduped against Realtime's own heartbeat
+    │    ticks) schedules one debounced fetch of /history — reactive to the
+    │    real event, not a fixed interval — so the History/Playground run
+    │    list picks up full inputs/outputs/durations shortly after
+    │  On run completion: one final /history fetch, subscription closed
     │
     ▼
 Run reaches terminal state: SUCCESS / PARTIAL / FAILED / CANCELED
@@ -116,6 +130,12 @@ nextflow/
 │   │   ├── api/
 │   │   │   ├── upload/
 │   │   │   │   └── route.ts       # Transloadit image upload proxy
+│   │   │   ├── webhooks/
+│   │   │   │   └── transloadit-crop/
+│   │   │   │       └── route.ts   # Transloadit notify_url callback — completes the
+│   │   │   │                      #   crop-image task's wait.forToken() waitpoint
+│   │   │   │                      #   (exempted from Clerk auth in middleware.ts,
+│   │   │   │                      #   verified via its own HMAC signature instead)
 │   │   │   └── workflows/
 │   │   │       ├── route.ts       # GET (list) + POST (create) workflows
 │   │   │       └── [id]/
@@ -142,6 +162,9 @@ nextflow/
 │   ├── components/
 │   │   ├── canvas/
 │   │   │   ├── WorkflowClient.tsx # Editor page shell — loads store, autosave, run, history
+│   │   │   ├── RunRealtimeSync.tsx # Headless Trigger.dev Realtime subscriber (useRealtimeRun),
+│   │   │   │                       #   shared by WorkflowClient and PlaygroundPanel so neither
+│   │   │   │                       #   polls /history on an interval
 │   │   │   ├── WorkflowCanvas.tsx # ReactFlow wrapper — nodeTypes, keyboard shortcuts, toolbars
 │   │   │   ├── CanvasToolbar.tsx  # Bottom-left pill — undo/redo/zoom/fit/auto-arrange/selection (collapsible)
 │   │   │   ├── AddNodeChip.tsx    # Bottom-center — duplicate button + node picker
@@ -182,9 +205,12 @@ nextflow/
 │   ├── lib/
 │   │   ├── types.ts              # All shared types — NodeKind, node data interfaces, handle types
 │   │   ├── graph.ts              # Pure DAG logic — resolveExecutionSet, resolveNodeInputs, buildNodeOutput
-│   │   ├── validation.ts         # Zod schemas for API route input validation
+│   │   ├── validation.ts         # Zod schemas — discriminated union per node kind (not
+│   │   │                         #   z.record(z.unknown())) + validateGraphHandles() for
+│   │   │                         #   edge/handle-compatibility checks before save
 │   │   ├── gemini-client.ts      # Google Generative AI SDK wrapper
-│   │   ├── transloadit-upload.ts # Browser-side Transloadit assembly + polling
+│   │   ├── transloadit-upload.ts # Browser-side Transloadit assembly + Socket.IO status
+│   │   │                         #   subscription (assembly.websocket_url) instead of polling
 │   │   ├── sample-workflow.ts    # "Load Sample Workflow" — pre-built 7-node product pipeline
 │   │   ├── auth.ts               # requireAuth() helper — throws if unauthenticated
 │   │   ├── prisma.ts             # Singleton Prisma client
@@ -195,11 +221,20 @@ nextflow/
 │   │   └── runRequestStore.ts    # Tiny store for per-node Run button → WorkflowClient bridge
 │   │
 │   ├── trigger/
-│   │   ├── runWorkflow.ts        # Root orchestrator task — DAG fan-out, NodeRun writes, finalize
-│   │   ├── cropImage.ts          # Transloadit crop sub-task (30s enforced minimum)
+│   │   ├── runWorkflow.ts        # Root orchestrator task — DAG fan-out, NodeRun writes, finalize.
+│   │   │                         #   Waits on child task runs via runs.subscribeToRun (Realtime),
+│   │   │                         #   not a runs.retrieve() polling loop, and publishes live
+│   │   │                         #   per-node status via metadata.set("nodeStatuses", …)
+│   │   ├── cropImage.ts          # Transloadit crop sub-task. 30s minimum via wait.for({ seconds }),
+│   │   │                         #   not setTimeout. Transloadit upload uses wait.createToken() +
+│   │   │                         #   a notify_url webhook + wait.forToken() instead of the
+│   │   │                         #   Transloadit SDK's internal-polling waitForCompletion mode
 │   │   └── gemini.ts             # Gemini API sub-task — prompt + vision + settings + retry logic
 │   │
-│   └── middleware.ts             # Clerk auth middleware — protects all routes except sign-in/sign-up
+│   └── middleware.ts             # Clerk auth middleware — protects all routes except
+│                                  #   sign-in/sign-up/api/webhooks (incoming third-party
+│                                  #   callbacks like Transloadit's notify_url have no Clerk
+│                                  #   session; they authenticate via their own signature)
 │
 ├── trigger.config.ts             # Trigger.dev project config + build settings
 ├── next.config.js                # Next.js config — serverExternalPackages for ffmpeg/prisma
@@ -211,7 +246,7 @@ nextflow/
 
 ## Status
 
-Verified to compile cleanly (`npx tsc --noEmit`, `npx next lint`, full `next build`) and run end-to-end in production — Trigger.dev run logs with real compute costs confirm the full pipeline (Request-Inputs → Crop Image → Gemini → Response) executes correctly. The only sandbox limitation during development was `prisma generate` (no network access to `binaries.prisma.sh`) — this works normally on any machine with internet access.
+Verified to compile cleanly (`npx tsc --noEmit`, `npx next lint`, full `next build`) and run end-to-end in production on Vercel — including a full run through the required sample workflow (Request-Inputs → 2× Crop Image → Gemini chain → Response) with the Trigger.dev Realtime subscription, `wait.for`/`wait.forToken` crop flow, and the Transloadit `notify_url` webhook all confirmed working against real deployed infrastructure, not just local dev. The only sandbox limitation during development was `prisma generate` (no network access to `binaries.prisma.sh`) — this works normally on any machine with internet access.
 
 ---
 
@@ -239,6 +274,8 @@ cp .env.example .env
 
 **Transloadit** (image upload + crop storage) — [transloadit.com](https://transloadit.com) → create an account → go to the **Credentials** page and copy the real Auth Key + Auth Secret (long generated strings, not anything you make up yourself) into `TRANSLOADIT_AUTH_KEY` / `TRANSLOADIT_AUTH_SECRET`. No Template and no robot/storage configuration is needed — uploads read the file's auto-generated temporary URL straight from the assembly response (see "Known limitations" below for the tradeoff this implies).
 
+**`NEXT_PUBLIC_APP_URL`** — the app's own public base URL, used to build the Transloadit `notify_url` webhook callback the `crop-image` task waits on. Locally, this needs a public tunnel (see "Testing the crop-image webhook locally" under Deploy) since `crop-image` runs on Trigger.dev's cloud infrastructure, not your machine — `http://localhost:3000` is not reachable from there. In production, set it to your real deployed domain. **This must be set in the Trigger.dev dashboard's environment variables in addition to wherever else you set env vars** (`.env` locally, Vercel in production) — see "Review feedback addressed" above for why.
+
 ## 3. Set up the database
 
 ```bash
@@ -259,9 +296,53 @@ Without the second process running, "Run Workflow" will start a run that never c
 
 ## 5. Deploy
 
-- Push to GitHub, import into Vercel, add all the same env vars there.
-- Deploy your Trigger.dev project separately (`npx trigger.dev@latest deploy`) and point `TRIGGER_SECRET_KEY`/`TRIGGER_PROJECT_ID` at the deployed environment, not the dev one. **This step is required every time you change anything in `src/trigger/`** — pushing to GitHub only updates the Next.js app on Vercel; the Trigger.dev worker is a completely separate deployment.
+Pushing to GitHub and letting Vercel auto-deploy only covers the Next.js half of this app. The Trigger.dev task code (`crop-image`, `gemini-generate`, `run-workflow`) lives in a separate deployment target entirely. Checklist:
+
+- **Deploy the Trigger.dev project separately**: `npx trigger.dev@latest deploy`. **Required every time you change anything under `src/trigger/`** — a `git push` alone does not update the deployed task code, and an old deployed version will silently keep running against your production app.
+- **`TRIGGER_SECRET_KEY` in Vercel must be the Production key**, not the Development one — each Trigger.dev environment has its own. Get it from the Trigger.dev dashboard.
+- **`NEXT_PUBLIC_APP_URL` must be set in both places** (see "Review feedback addressed" above): Vercel's env vars, and the Trigger.dev dashboard's environment variables for Production. Set it to your real deployed URL (e.g. `https://your-app.vercel.app` or a custom domain) — no trailing slash.
+- **Environment variables the Trigger.dev-side task code reads** (`TRANSLOADIT_AUTH_KEY`, `TRANSLOADIT_AUTH_SECRET`, `DATABASE_URL`, `GOOGLE_GENERATIVE_AI_API_KEY`, `NEXT_PUBLIC_APP_URL`) must be set in the **Trigger.dev dashboard's Environment Variables page**, tagged for the environment you deployed to. Note the dashboard's own tooltip on this: for the **Development** environment specifically, a local `.env` file overrides whatever's set there when running `trigger dev` locally — but that override does not apply to a `trigger deploy`'d Production environment, which only ever reads what's configured in the dashboard.
+- **Clerk production keys** — if you were developing against a Clerk dev instance, swap `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`/`CLERK_SECRET_KEY` for your production instance's keys in Vercel; dev keys are domain-restricted and won't authenticate on a real deployed domain.
 - Make sure `binaryTargets` in `prisma/schema.prisma` includes `"debian-openssl-3.0.x"` alongside `"native"` — Trigger.dev's cloud workers run on Linux and need the correct Prisma query engine binary. Without this, the worker will fail at runtime with a "query engine not found" error even though it compiles fine locally.
+- Confirm `DATABASE_URL` (Neon/Supabase/etc.) is reachable from both Vercel's functions and Trigger.dev's cloud workers — generally true by default for a managed Postgres provider, just worth confirming if yours has IP allowlisting enabled.
+
+### Testing the crop-image webhook locally before deploying
+
+`crop-image`'s Transloadit upload waits on a `notify_url` webhook callback (see above), which means Transloadit's servers need a real public URL to call back to — `localhost:3000` doesn't work even though the task itself runs fine locally via `trigger dev`. To test this flow before deploying:
+
+1. Start a tunnel: `ngrok http 3000` (or Cloudflare Tunnel, or Transloadit's own `npx -y @transloadit/notify-url-relay`).
+2. Set `NEXT_PUBLIC_APP_URL` in your local `.env` to the tunnel's `https://` URL.
+3. Restart both `npm run dev` and `npx trigger.dev@latest dev` so they pick up the change.
+4. Use the app via that tunnel URL (not `localhost:3000`) for any run that includes a Crop Image node.
+5. If it hangs, check (in order): the Trigger.dev run's logs for the assembly ID → look it up directly at `https://api2.transloadit.com/assemblies/<id>` to see if Transloadit ever tried the callback → the tunnel's own request inspector (ngrok: `http://127.0.0.1:4040`) to see whether the callback reached your app and what it returned.
+6. **Free ngrok domains show a `404`, not a warning page, if the request never reaches your route at all** — that's usually Clerk middleware rejecting the unauthenticated webhook request (see `middleware.ts`'s `/api/webhooks(.*)` exemption above), not ngrok itself.
+
+---
+
+## Review feedback addressed
+
+A prior codebase review flagged four issues as the main gaps against the assignment spec. Here's what changed for each, and where:
+
+**1. No Trigger Realtime.**
+Added `useRealtimeRun` (`@trigger.dev/react-hooks`) on the frontend — `src/components/canvas/RunRealtimeSync.tsx`, shared by the canvas editor and the Playground tab — subscribed with a scoped `publicAccessToken` minted per run (`POST /run`) and re-minted on page reload for any run still in flight (`GET /history`). The orchestrator publishes live per-node status via `metadata.set("nodeStatuses", …)` (`src/trigger/runWorkflow.ts`) — genuine Trigger-metadata-driven realtime updates, not a derived/simulated status.
+
+**2. Polling used heavily.**
+
+- Workflow history/status refresh (canvas editor **and** the Playground tab, which had its own separate polling loop) — replaced with the Realtime subscription above plus a debounced (not interval-based) fetch triggered only by an actual status change.
+- Trigger child-task tracking (`runs.retrieve()` in a loop) — replaced with `runs.subscribeToRun()`, a Realtime async iterator. (Deliberately not `triggerAndWait`: Trigger.dev disallows wrapping that in `Promise.all`, which is how this orchestrator gets its parallel DAG fan-out — `subscribeToRun` has no such restriction.)
+- Transloadit upload/status flow (browser-side) — switched to a Socket.IO subscription on the assembly's `websocket_url` (`src/lib/transloadit-upload.ts`).
+- Crop upload's `waitForCompletion: true` (internal SDK polling) — replaced with `wait.createToken()` + a `notify_url` webhook (`src/app/api/webhooks/transloadit-crop`) + `wait.forToken()` — a genuine Trigger wait pattern, zero polling.
+
+**3. Crop delay used `setTimeout`.**
+Now `wait.for({ seconds })` (`src/trigger/cropImage.ts`) — the run is actually checkpointed for the duration rather than holding a `setTimeout` on a hot worker.
+
+**4. Server-side validation could be stricter.**
+`data: z.record(z.unknown())` replaced with a discriminated union validating each node kind's actual shape, plus a new `validateGraphHandles()` check that rejects edges referencing a nonexistent handle or connecting incompatible data types — wired into both the save (`PATCH /api/workflows/[id]`) and create/import (`POST /api/workflows`) routes (`src/lib/validation.ts`).
+
+Two things worth knowing if you're evaluating this against a fresh clone:
+
+- **`NEXT_PUBLIC_APP_URL` must be set in _two_ places**, not just one: Vercel's env vars (for the Next.js app itself) _and_ the Trigger.dev dashboard's environment variables for whichever environment you're running against (Development or Production) — the `crop-image` task runs on Trigger.dev's infrastructure, not Vercel's, and needs its own copy to build the webhook callback URL. Missing this surfaces as the task hanging indefinitely at `wait.forToken()`.
+- **Local dev testing of the crop-image webhook requires a public tunnel** (ngrok, Cloudflare Tunnel, or Transloadit's own `@transloadit/notify-url-relay`) pointed at `localhost:3000`, since Transloadit's servers need to reach `notify_url` from the public internet. See "Deploy" below for the same requirement in production (where it's just your real domain, no tunnel needed).
 
 ---
 
@@ -282,7 +363,7 @@ The spec requires the exact product-description pipeline from its Nodes/Edges ta
 - **Edge deletion**: selected edges are tracked in the Zustand store (`selectedEdgeIds`) and deleted by the same Delete/Backspace handler that removes nodes. Click an edge to select it (it highlights), then press Delete.
 - **History panel node expansion**: every node row in the history panel (both the canvas editor's side panel and the Playground tab's run history table) is expandable. Clicking a row reveals the node's inputs, output, and error message. Image URL values are rendered as actual image previews rather than raw URL strings.
 - **Auto-arrange**: the Wand button (or Shift+A) lays out nodes into a clean left-to-right DAG using a topological sort. Column positions and row heights are calculated from each node's actual measured dimensions (via `node.measured`) so nodes never overlap regardless of their content height.
-- **Live UI updates**: `WorkflowClient.tsx` polls `/api/workflows/[id]/history` every 2s, applying the latest run's per-node statuses (drives the pulsing-glow border in `NodeShell`) and outputs back onto the canvas nodes.
+- **Live UI updates**: `WorkflowClient.tsx` (canvas editor) and `PlaygroundPanel.tsx` (Workflow Overview's Playground tab) both use `RunRealtimeSync.tsx` — a shared headless component wrapping Trigger.dev's `useRealtimeRun` — to subscribe to the in-progress run. Per-node status comes from `run.metadata.nodeStatuses` (set by the orchestrator via `metadata.set()`) and drives the pulsing-glow border directly, with no request in that path at all. Each genuine status change (deduped against Realtime's own heartbeat ticks, which fire far more often than the data actually changes) schedules one debounced fetch of `/history` for the fuller Postgres-backed record (durations, full inputs/outputs) — reactive to the real event, not a fixed interval. There is no `setInterval` polling anywhere in this app.
 - **Build attribution console.log**: the assignment doc requires logging a candidate LinkedIn URL on every page load. This is implemented in `src/components/AttributionLog.tsx`, reading from `NEXT_PUBLIC_CANDIDATE_LINKEDIN_URL` so nothing is hardcoded — leave that env var blank to log nothing, or delete the component entirely if you'd rather not include it.
 
 ---
@@ -295,13 +376,13 @@ These are real gaps that are worth fixing in a production version. They are docu
 
 There is no feedback when a run starts, succeeds, fails, or is canceled — the user has to watch the canvas border colours or open the History panel to know what happened.
 
-**The fix:** Add a lightweight toast library (`sonner` is a good fit — minimal, unstyled by default, works cleanly with Tailwind) and fire toasts from `WorkflowClient.tsx`'s polling loop: `toast.success("Run completed")` when the latest run transitions to SUCCESS, `toast.error("Run failed — check history for details")` on FAILED/PARTIAL, and `toast.info("Run canceled")` on CANCELED. This is a small change with a large UX impact.
+**The fix:** Add a lightweight toast library (`sonner` is a good fit — minimal, unstyled by default, works cleanly with Tailwind) and fire toasts from the `onSettled` callback passed to `RunRealtimeSync` in `WorkflowClient.tsx`/`PlaygroundPanel.tsx`: `toast.success("Run completed")` when the latest run transitions to SUCCESS, `toast.error("Run failed — check history for details")` on FAILED/PARTIAL, and `toast.info("Run canceled")` on CANCELED. This is a small change with a large UX impact.
 
 ### Streaming Gemini output
 
 Currently the Gemini node only shows its response after the full generation completes. For long outputs this means a blank node for 10-30 seconds with no indication of progress.
 
-**The fix:** Google's `@google/genai` SDK supports streaming via `generateContentStream()`. The Trigger.dev task could write partial response chunks to the node's data incrementally, and the frontend's 2-second poll would pick them up progressively. This is a meaningful UX improvement for any workflow producing substantial text output.
+**The fix:** Google's `@google/genai` SDK supports streaming via `generateContentStream()`. The Trigger.dev task could write partial response chunks to the node's data incrementally (e.g. via `metadata.set()`, the same Realtime channel node statuses already use), and the frontend's existing `useRealtimeRun` subscription would pick them up progressively with no extra plumbing. This is a meaningful UX improvement for any workflow producing substantial text output.
 
 ### DAG cycle validation on the canvas
 
@@ -315,12 +396,6 @@ Transloadit's temporary assembly URLs expire after a short window (typically a f
 
 **The fix:** Add an S3 (or Cloudflare R2) export step to the Transloadit assembly using the `/s3/store` robot. The permanent S3 URL should be stored instead of the temporary assembly URL. This requires adding S3 credentials to the environment and configuring the Transloadit template, but is the correct production approach.
 
-### WebSocket / SSE for live run status
-
-The frontend currently polls `/api/workflows/[id]/history` every 2 seconds to get run status updates. This works, but it means status can lag up to 2 seconds behind reality and generates constant unnecessary requests when no run is in progress.
-
-**The fix:** Trigger.dev exposes a Realtime API (`@trigger.dev/sdk/react` provides `useRealtimeRun`) that pushes run status updates over a subscription rather than polling. Switching to this would give instant status updates on the canvas and eliminate the polling entirely.
-
 ### Response node label editing
 
 The Response node supports custom display labels for each connected result (stored in `data.resultLabels` keyed by edge id) but there is no UI to edit them — the label always falls back to the auto-derived `slugifyLabel(nodeDisplayLabel(...))` value.
@@ -332,8 +407,9 @@ The Response node supports custom display labels for each connected result (stor
 ## Known limitations / what to check first
 
 - **`fluent-ffmpeg` doesn't bundle the actual `ffmpeg`/`ffprobe` binaries** — it just shells out to whatever's on your system PATH, which gave a "Cannot find ffprobe" failure on a clean machine (especially common on Windows). Fixed by using `@ffmpeg-installer/ffmpeg` and `@ffprobe-installer/ffprobe`, which bundle static per-platform binaries — `ffmpeg.setFfmpegPath()`/`setFfprobePath()` now point at those instead of assuming a system install. One thing to verify on deploying: Trigger.dev's cloud build step may need its bundler configured to keep these binary files external rather than tree-shaken away.
-- **Uploads use Transloadit's automatic temporary URLs, not permanent storage.** The actual fix required a single `":original"` step using the `/upload/handle` robot — removing the robot entirely triggers `ASSEMBLY_NO_STEPS`, and the `/file/store` robot doesn't exist (real storage robots like `/s3/store` need external credentials). The file's temporary `ssl_url` appears under either `results[":original"]` or the top-level `uploads` array depending on account/region — both locations are checked. Browser-side polling uses `api2.transloadit.com` (the generic endpoint) rather than the instance-specific subdomain.
+- **Uploads use Transloadit's automatic temporary URLs, not permanent storage.** The actual fix required a single `":original"` step using the `/upload/handle` robot — removing the robot entirely triggers `ASSEMBLY_NO_STEPS`, and the `/file/store` robot doesn't exist (real storage robots like `/s3/store` need external credentials). The file's temporary `ssl_url` appears under either `results[":original"]` or the top-level `uploads` array depending on account/region — both locations are checked. Browser-side upload status uses a Socket.IO subscription to the assembly's own `websocket_url` (`src/lib/transloadit-upload.ts`), not polling.
 - **A run getting stuck in "Running" forever with a failed node was a real bug — fixed.** The orchestrator originally used thrown errors to mark nodes FAILED, but those exceptions propagated through `Promise.all` and crashed the task before it could mark the Run as finished. Node failures are now tracked in an explicit outcome map; downstream nodes whose upstream failed are recorded as SKIPPED; the run always reaches a terminal state (SUCCESS / PARTIAL / FAILED) regardless of individual node failures. A Cancel button in the history panel provides a manual safety valve.
+- **`NEXT_PUBLIC_APP_URL` needing to be set in two separate places (Vercel + Trigger.dev dashboard) is an easy thing to miss and surfaces confusingly** — the symptom is `crop-image` hanging indefinitely at `wait.forToken()` with no obvious error, since the task itself starts and runs fine; it's only the Transloadit callback that silently never arrives. See "Review feedback addressed" and "Deploy" above.
 - **Video/Audio/File inputs on the Gemini node** are visually present with correctly-typed handles for connections, but have no manual upload control wired up (only Prompt, System Prompt, and Image (Vision) support both connection and manual entry/upload). The required sample workflow only exercises Prompt and Image (Vision), so this doesn't block the core deliverable.
 - **DAG cycle validation** runs on save (`PATCH /api/workflows/[id]`) but the canvas doesn't yet visually reject an in-progress drag that would create a cycle — it'll save-reject instead of connection-reject.
 - **Pixel-matching the Galaxy.ai reference** was done from the written spec and the one reference screenshot in the assignment doc, not a live side-by-side against `try.galaxy.ai/clone`. Expect to need a visual pass once you can compare directly.

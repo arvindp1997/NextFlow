@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { ReactFlowProvider } from "@xyflow/react";
-import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import {
   ArrowLeft,
   Play,
@@ -26,12 +25,7 @@ import {
 } from "@/store/workflowStore";
 import type { RequestInputsNodeData } from "@/lib/types";
 import { useRunRequestStore } from "@/store/runRequestStore";
-
-interface ActiveRun {
-  runId: string;
-  triggerRunId: string;
-  publicAccessToken: string;
-}
+import { RunRealtimeSync, type ActiveRun } from "@/components/canvas/RunRealtimeSync";
 
 export function WorkflowClient({
   workflowId,
@@ -382,38 +376,6 @@ export function WorkflowClient({
   );
 }
 
-/**
- * Headless: subscribes to the orchestrator run via Trigger.dev Realtime
- * (useRealtimeRun) and forwards live node-status updates + the terminal
- * "done" event up to WorkflowClient. Split into its own component only
- * because the hook needs a stable runId/token to subscribe with, and those
- * are `null` whenever no run is active — cleaner as a component that
- * mounts/unmounts than a hook called conditionally.
- */
-function RunRealtimeSync({
-  activeRun,
-  onNodeStatuses,
-  onSettled,
-}: {
-  activeRun: ActiveRun;
-  onNodeStatuses: (statuses: Record<string, string>) => void;
-  onSettled: () => void;
-}) {
-  const { run } = useRealtimeRun(activeRun.triggerRunId, {
-    accessToken: activeRun.publicAccessToken,
-    onComplete: () => onSettled(),
-  });
-
-  useEffect(() => {
-    const statuses = (run?.metadata as { nodeStatuses?: Record<string, string> } | undefined)?.nodeStatuses;
-    if (statuses) onNodeStatuses(statuses);
-    // run.metadata is a new object reference on every update from the hook,
-    // so this effect naturally re-fires on each Realtime push.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [run?.metadata]);
-
-  return null;
-}
 
 function SaveIndicator({ state }: { state: "idle" | "saving" | "saved" }) {
   if (state === "saving")
