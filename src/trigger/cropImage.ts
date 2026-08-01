@@ -1,4 +1,4 @@
-import { task, wait } from "@trigger.dev/sdk/v3";
+import { task, wait, logger } from "@trigger.dev/sdk/v3";
 import { cropImagePayloadSchema } from "@/lib/validation";
 import { z } from "zod";
 
@@ -138,7 +138,7 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
   const token = await wait.createToken({ timeout: "5m" });
   const notifyUrl = `${appUrl}/api/webhooks/transloadit-crop?token=${token.id}`;
 
-  await client.createAssembly({
+  const assembly = await client.createAssembly({
     params: {
       steps: {
         ":original": { robot: "/upload/handle" },
@@ -147,6 +147,18 @@ async function uploadToTransloadit(buffer: Buffer): Promise<string> {
     },
     uploads: { input: Readable.from(buffer) },
     waitForCompletion: false,
+  });
+
+  // Diagnostic: check this run's log for the assembly_id, then look it up
+  // directly at https://api2.transloadit.com/assemblies/<assembly_id> (or
+  // in the Transloadit dashboard) to see whether it ever tried calling
+  // notify_url and what response it got back — that tells you definitively
+  // whether the webhook request is reaching this app at all.
+  logger.info("Transloadit assembly created, waiting for notify_url callback", {
+    assemblyId: assembly.assembly_id,
+    assemblySslUrl: assembly.assembly_ssl_url,
+    notifyUrl,
+    waitpointTokenId: token.id,
   });
 
   const result = await wait.forToken<{ ok: boolean; url?: string; error?: string }>(token);

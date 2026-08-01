@@ -14,12 +14,15 @@ import { wait } from "@trigger.dev/sdk/v3";
  *
  * Transloadit notify_url requests arrive as multipart/form-data with a
  * `transloadit` field containing the JSON-encoded assembly status and a
- * `signature` field (`sha384:<hmac>`) computed over that JSON using the
+ * `signature` field (either `<algo>:<hmac>`, or a bare legacy sha1 hex
+ * digest with no prefix at all) computed over that JSON using the
  * account's auth secret — verified below before trusting the payload.
  */
 export async function POST(req: Request) {
   const url = new URL(req.url);
   const tokenId = url.searchParams.get("token");
+  console.log("[transloadit-crop webhook] request received", { tokenId, contentType: req.headers.get("content-type") });
+
   if (!tokenId) {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
@@ -28,6 +31,7 @@ export async function POST(req: Request) {
   const raw = form?.get("transloadit");
   const signature = form?.get("signature");
   if (typeof raw !== "string" || typeof signature !== "string") {
+    console.error("[transloadit-crop webhook] malformed body — no `transloadit`/`signature` form fields found");
     return NextResponse.json({ error: "Malformed notification" }, { status: 400 });
   }
 
@@ -36,11 +40,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Transloadit is not configured" }, { status: 500 });
   }
 
-  const expected = `sha384:${createHmac("sha384", authSecret).update(raw, "utf-8").digest("hex")}`;
+  // Per Transloadit's own webhook-verification reference implementation
+  // (https://transloadit.com/docs/topics/webhooks/): the signature is
+  // *not* always sha384 — it's `algo:hexdigest` when there's a colon, or a
+  // bare legacy sha1 hex digest (no prefix at all) otherwise. The algorithm
+  // must be read off the received signature itself, not assumed.
+  const algoSeparatorIndex = signature.indexOf(":");
+  const algo = algoSeparatorIndex === -1 ? "sha1" : signature.slice(0, algoSeparatorIndex);
+  const receivedDigest = algoSeparatorIndex === -1 ? signature : signature.slice(algoSeparatorIndex + 1);
+
+  let calculatedDigest: string;
+  try {
+    calculatedDigest = createHmac(algo, authSecret).update(Buffer.from(raw, "utf-8")).digest("hex");
+  } catch {
+    console.error("[transloadit-crop webhook] unsupported signature algorithm", { algo });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
   const signatureValid =
-    signature.length === expected.length &&
-    timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    calculatedDigest.length === receivedDigest.length &&
+    timingSafeEqual(Buffer.from(calculatedDigest), Buffer.from(receivedDigest));
   if (!signatureValid) {
+    console.error("[transloadit-crop webhook] signature mismatch — TRANSLOADIT_AUTH_SECRET likely differs from the one used to create the assembly", { algo });
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -51,6 +72,7 @@ export async function POST(req: Request) {
     results?: Record<string, Array<{ ssl_url?: string; url?: string }>>;
     uploads?: Array<{ ssl_url?: string | null; url?: string | null }>;
   };
+  console.log("[transloadit-crop webhook] signature verified", { tokenId, assemblyStatus: assembly.ok });
 
   if (assembly.ok !== "ASSEMBLY_COMPLETED") {
     await wait.completeToken(tokenId, {
@@ -69,6 +91,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
+  console.log("[transloadit-crop webhook] completing waitpoint token", { tokenId, url: url_ });
   await wait.completeToken(tokenId, { ok: true, url: url_ });
   return NextResponse.json({ received: true });
 }
