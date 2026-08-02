@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 
 interface ActiveUpload {
@@ -25,6 +25,12 @@ interface ActiveUpload {
  */
 export function useTransloaditUpload() {
   const [activeUpload, setActiveUpload] = useState<ActiveUpload | null>(null);
+  // Kept in sync with `activeUpload` on every render so the stable
+  // callback below (see `handleComplete`) can read the current value
+  // without needing `activeUpload` in its own dependency array.
+  const activeUploadRef = useRef<ActiveUpload | null>(null);
+  activeUploadRef.current = activeUpload;
+
   const resolverRef = useRef<{ resolve: (url: string) => void; reject: (err: Error) => void } | null>(null);
 
   const settle = useCallback(async (triggerRunId: string) => {
@@ -46,13 +52,35 @@ export function useTransloaditUpload() {
     }
   }, []);
 
-  useRealtimeRun(activeUpload?.triggerRunId ?? "none", {
-    accessToken: activeUpload?.publicAccessToken,
-    enabled: !!activeUpload,
-    onComplete: () => {
-      if (activeUpload) settle(activeUpload.triggerRunId);
-    },
-  });
+  // A genuinely stable function identity across every render (empty dep
+  // array, reads the current upload via the ref above instead of closing
+  // over `activeUpload` directly). Passing a fresh inline arrow function
+  // as `onComplete` on every render — even one totally unrelated to this
+  // hook, like an unrelated canvas re-render — was tearing down and
+  // reopening the Realtime subscription every time, which is exactly what
+  // showed up as repeated/canceled subscription requests to the same run
+  // in the network tab, and could cause a real completion event to be
+  // missed mid-teardown on a second upload.
+  const handleComplete = useCallback(() => {
+    const current = activeUploadRef.current;
+    if (current) settle(current.triggerRunId);
+  }, [settle]);
+
+  // Likewise memoize the whole options object passed to useRealtimeRun —
+  // an inline object literal is a new reference every render regardless
+  // of whether its contents actually changed, which is enough on its own
+  // to trigger the same unwanted resubscribe behavior even with a stable
+  // onComplete.
+  const options = useMemo(
+    () => ({
+      accessToken: activeUpload?.publicAccessToken,
+      enabled: !!activeUpload,
+      onComplete: handleComplete,
+    }),
+    [activeUpload, handleComplete]
+  );
+
+  useRealtimeRun(activeUpload?.triggerRunId ?? "none", options);
 
   const uploadFile = useCallback((file: File): Promise<string> => {
     return new Promise<string>((resolve, reject) => {
