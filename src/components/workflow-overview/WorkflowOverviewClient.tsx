@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,8 +14,8 @@ type Tab = "playground" | "api" | "workflow";
 export function WorkflowOverviewClient({
   workflowId,
   name,
-  nodes,
-  edges,
+  nodes: initialNodes,
+  edges: initialEdges,
 }: {
   workflowId: string;
   name: string;
@@ -23,6 +23,35 @@ export function WorkflowOverviewClient({
   edges: FlowEdge[];
 }) {
   const [tab, setTab] = useState<Tab>("playground");
+  // Owned here, not inside PlaygroundPanel — PlaygroundPanel is
+  // conditionally rendered per-tab and gets fully unmounted when the user
+  // switches to the Workflow tab, so state living inside it doesn't
+  // survive a tab switch. Living here instead means a run's results (and
+  // an in-progress image upload not yet run) persist across tab switches,
+  // and the read-only Workflow tab reflects the same up-to-date data.
+  const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
+  const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
+
+  // Fast initial paint uses the (possibly stale) server-rendered props
+  // above; then always confirm with a fresh client-side fetch, which
+  // bypasses Next.js's Router Cache entirely — unlike those props, which
+  // can be served stale when this route is reached via a client-side
+  // <Link> shortly after the canvas editor (a separate route/page) saved
+  // changes through a plain API route Next has no way to know about.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/workflows/${workflowId}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        setNodes(json.workflow.nodes);
+        setEdges(json.workflow.edges);
+      } catch {
+        // Non-fatal — the props-seeded state above still works, just
+        // potentially stale.
+      }
+    })();
+  }, [workflowId]);
 
   return (
     <div className="flex h-screen">
@@ -48,7 +77,7 @@ export function WorkflowOverviewClient({
 
         <div className="flex-1 overflow-auto">
           {tab === "playground" && (
-            <PlaygroundPanel workflowId={workflowId} initialNodes={nodes} initialEdges={edges} />
+            <PlaygroundPanel workflowId={workflowId} nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} />
           )}
           {tab === "workflow" && (
             <ReadOnlyWorkflowCanvas workflowId={workflowId} name={name} nodes={nodes} edges={edges} />

@@ -38,17 +38,68 @@ interface RunRow {
   nodeRuns: NodeRunRecord[];
 }
 
+/**
+ * The orchestrator (src/trigger/runWorkflow.ts) only ever writes run
+ * results to NodeRun rows — it never writes them back onto the
+ * Workflow.nodes JSON blob itself. The canvas editor gets away with never
+ * needing this function because it applies NodeRun outputs onto its
+ * zustand store via applyNodeResults(), and its own 900ms debounced
+ * autosave effect then persists that change back to Postgres as a side
+ * effect of an unrelated general-purpose "save on any store change"
+ * mechanism. Playground has no such store/autosave — so without an
+ * explicit merge+persist step here, a Playground-triggered run's results
+ * would only ever exist in NodeRun history, never becoming visible in the
+ * Output panel (which reads node.data.response/outputImageUrl, not
+ * history) or on the canvas editor if you navigate there afterward.
+ *
+ * Mirrors workflowStore.ts's applyNodeResults() merge logic exactly, so
+ * both surfaces treat a NodeRun's output the same way.
+ */
+function mergeNodeOutputs(nodes: FlowNode[], nodeRuns: NodeRunRecord[]): FlowNode[] {
+  const outputByNodeId = new Map(
+    nodeRuns.filter((nr) => nr.output !== undefined && nr.output !== null).map((nr) => [nr.nodeId, nr.output])
+  );
+  return nodes.map((n) => {
+    const output = outputByNodeId.get(n.id);
+    if (output === undefined) return n;
+    const r = output as Record<string, unknown>;
+    if (n.data.kind === "crop-image") {
+      const url = (r.output_image ?? r.outputImageUrl) as string | undefined;
+      if (!url) return n;
+      return { ...n, data: { ...n.data, outputImageUrl: url } };
+    }
+    if (n.data.kind === "gemini") {
+      return { ...n, data: { ...n.data, response: r.response as string } };
+    }
+    if (n.data.kind === "response") {
+      return { ...n, data: { ...n.data, result: r.result } };
+    }
+    return n;
+  });
+}
+
 export function PlaygroundPanel({
   workflowId,
-  initialNodes,
-  initialEdges,
+  nodes,
+  setNodes,
+  edges,
+  setEdges,
 }: {
   workflowId: string;
-  initialNodes: FlowNode[];
-  initialEdges: FlowEdge[];
+  nodes: FlowNode[];
+  setNodes: (nodes: FlowNode[]) => void;
+  edges: FlowEdge[];
+  setEdges: (edges: FlowEdge[]) => void;
 }) {
-  const [nodes, setNodes] = useState(initialNodes);
-  const [edges, setEdges] = useState(initialEdges);
+  // nodes/edges are owned by the parent (WorkflowOverviewClient), not by
+  // this component — this tab is conditionally rendered and gets fully
+  // unmounted/remounted every time the user switches to the Workflow tab
+  // and back. Previously nodes/edges lived in local useState here, seeded
+  // once from an `initialNodes`/`initialEdges` prop that never changed for
+  // the parent's whole lifetime — so every remount replayed that same
+  // stale, page-load-time snapshot, silently discarding whatever a run
+  // (or an image upload not yet run) had just changed. Lifting this state
+  // up to the parent means it survives this component unmounting.
   const requestInputsNode = nodes.find((n) => n.data.kind === "request-inputs");
   const responseNode = nodes.find((n) => n.data.kind === "response");
 
@@ -93,14 +144,17 @@ export function PlaygroundPanel({
     return runs.filter((r) => r.id.toLowerCase().includes(searchTerm));
   }, [runs, runSearch]);
 
-  const refreshHistory = useCallback(async () => {
+  const refreshHistory = useCallback(async (): Promise<RunRow[]> => {
     try {
       const res = await fetch(`/api/workflows/${workflowId}/history`);
-      if (!res.ok) return;
+      if (!res.ok) return [];
       const json = await res.json();
-      setRuns(json.runs ?? []);
+      const fetched: RunRow[] = json.runs ?? [];
+      setRuns(fetched);
+      return fetched;
     } catch (err) {
       console.error("Failed to load run history:", err);
+      return [];
     }
   }, [workflowId]);
 
@@ -135,15 +189,40 @@ export function PlaygroundPanel({
       historyRefreshTimer.current = null;
     }
     setActiveRun(null);
-    await refreshHistory();
-    const wfRes = await fetch(`/api/workflows/${workflowId}`);
+
+    const [latestRuns, wfRes] = await Promise.all([
+      refreshHistory(),
+      fetch(`/api/workflows/${workflowId}`),
+    ]);
+
     if (wfRes.ok) {
       const wfJson = await wfRes.json();
-      setNodes(wfJson.workflow.nodes);
-      setEdges(wfJson.workflow.edges);
+      const fetchedNodes: FlowNode[] = wfJson.workflow.nodes;
+      const fetchedEdges: FlowEdge[] = wfJson.workflow.edges;
+
+      // Overlay this run's actual results (response text, cropped image
+      // URLs) onto the freshly-fetched node data — see mergeNodeOutputs
+      // for why this step is necessary at all. Then persist the merged
+      // result back to the workflow, the same way the canvas editor's
+      // autosave implicitly does, so a Response/Crop node's latest output
+      // is visible here AND if you navigate to the canvas editor
+      // afterward — not just in this run's history entry.
+      const latestRun = latestRuns[0];
+      const mergedNodes = latestRun ? mergeNodeOutputs(fetchedNodes, latestRun.nodeRuns) : fetchedNodes;
+
+      setNodes(mergedNodes);
+      setEdges(fetchedEdges);
+
+      if (latestRun) {
+        fetch(`/api/workflows/${workflowId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nodes: mergedNodes, edges: fetchedEdges }),
+        }).catch((err) => console.error("Failed to persist run results:", err));
+      }
     }
     setRunning(false);
-  }, [workflowId, refreshHistory]);
+  }, [workflowId, refreshHistory, setNodes, setEdges]);
 
   async function handleFileSelect(fieldId: string, file: File | undefined) {
     if (!file) return;

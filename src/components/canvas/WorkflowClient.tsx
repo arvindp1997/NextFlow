@@ -73,7 +73,28 @@ export function WorkflowClient({
 
   // Initial load into the canvas store.
   useEffect(() => {
+    // Fast initial paint using the (possibly stale) server-rendered props —
+    // avoids a flash of an empty canvas while the fetch below resolves.
     store.load(workflowId, name, nodes, edges);
+
+    // Then always confirm with a fresh client-side fetch. A plain fetch()
+    // bypasses Next.js's Router Cache entirely, unlike the RSC props above
+    // — which CAN be served stale when this route is reached via a
+    // client-side <Link> shortly after another page (e.g. the Playground
+    // tab) mutated this same workflow through a plain API route. Next has
+    // no automatic way to know that mutation happened, since we don't use
+    // Server Actions/revalidatePath here.
+    (async () => {
+      try {
+        const res = await fetch(`/api/workflows/${workflowId}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        useWorkflowStore.getState().load(workflowId, json.workflow.name, json.workflow.nodes, json.workflow.edges);
+      } catch {
+        // Non-fatal — the props-seeded store above still works, just
+        // potentially stale.
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId]);
 

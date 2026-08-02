@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 
 export interface ActiveRun {
@@ -20,6 +20,17 @@ export interface ActiveRun {
  * Renders nothing — it's mounted conditionally (`{activeRun && <RunRealtimeSync .../>}`)
  * rather than calling the hook unconditionally, since the run id/token are
  * only known once a run has actually started.
+ *
+ * `onNodeStatuses`/`onSettled` are read through refs rather than closed
+ * over directly, so the options object passed to `useRealtimeRun` only
+ * ever changes when `activeRun` itself genuinely changes — not on every
+ * render of whichever parent renders this component (which, being a
+ * canvas/form-heavy UI, re-renders constantly for reasons that have
+ * nothing to do with the run). Passing fresh inline callbacks here
+ * previously caused the subscription to be torn down and recreated far
+ * more often than intended, which could cause a genuine completion event
+ * to be missed mid-teardown — surfacing as results only appearing after a
+ * full page/tab remount forced a fresh fetch, instead of appearing live.
  */
 export function RunRealtimeSync({
   activeRun,
@@ -30,10 +41,24 @@ export function RunRealtimeSync({
   onNodeStatuses?: (statuses: Record<string, string>) => void;
   onSettled: () => void;
 }) {
-  const { run } = useRealtimeRun(activeRun.triggerRunId, {
-    accessToken: activeRun.publicAccessToken,
-    onComplete: () => onSettled(),
-  });
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  const onNodeStatusesRef = useRef(onNodeStatuses);
+  onNodeStatusesRef.current = onNodeStatuses;
+
+  const handleComplete = useCallback(() => {
+    onSettledRef.current();
+  }, []);
+
+  const options = useMemo(
+    () => ({
+      accessToken: activeRun.publicAccessToken,
+      onComplete: handleComplete,
+    }),
+    [activeRun.publicAccessToken, handleComplete]
+  );
+
+  const { run } = useRealtimeRun(activeRun.triggerRunId, options);
 
   // useRealtimeRun streams updates continuously while the run is active
   // (progress/usage ticks, not just genuine state changes), so `run` — and
@@ -44,14 +69,13 @@ export function RunRealtimeSync({
   // before it ever elapses.
   const lastSerialized = useRef<string>("");
   useEffect(() => {
-    if (!onNodeStatuses) return;
     const statuses = (run?.metadata as { nodeStatuses?: Record<string, string> } | undefined)?.nodeStatuses;
     if (!statuses) return;
     const serialized = JSON.stringify(statuses);
     if (serialized === lastSerialized.current) return;
     lastSerialized.current = serialized;
-    onNodeStatuses(statuses);
-  }, [run?.metadata, onNodeStatuses]);
+    onNodeStatusesRef.current?.(statuses);
+  }, [run?.metadata]);
 
   return null;
 }
