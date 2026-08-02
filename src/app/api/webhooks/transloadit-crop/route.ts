@@ -3,14 +3,21 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { wait } from "@trigger.dev/sdk/v3";
 
 /**
- * Transloadit's `notify_url` callback for the crop-image assembly. Instead
- * of the crop task polling `client.createAssembly({ waitForCompletion: true
- * })` (which polls internally under the hood), we create the assembly with
- * `waitForCompletion: false` and a `notify_url` pointing here, tagged with a
- * Trigger.dev waitpoint token id. Transloadit POSTs the finished assembly
- * status to this route as soon as processing completes, and we resolve the
- * waitpoint — the task's `wait.forToken()` call resumes with no polling
- * anywhere in the loop.
+ * Transloadit's `notify_url` callback — shared by every task that uploads
+ * through `uploadToTransloadit()` (src/lib/transloadit-server-upload.ts):
+ * both the crop-image task's own output upload, and the standalone
+ * upload-image task behind the canvas/Playground's image upload UI. This
+ * route's logic is fully generic (it just resolves whichever waitpoint
+ * token id is in the query string), so one shared route handles both
+ * rather than duplicating it per task.
+ *
+ * Instead of the SDK polling `client.createAssembly({ waitForCompletion:
+ * true })` (which polls internally under the hood), the assembly is
+ * created with `waitForCompletion: false` and a `notify_url` pointing
+ * here, tagged with a Trigger.dev waitpoint token id. Transloadit POSTs
+ * the finished assembly status to this route as soon as processing
+ * completes, and we resolve the waitpoint — the task's `wait.forToken()`
+ * call resumes with no polling anywhere in the loop.
  *
  * Transloadit notify_url requests arrive as multipart/form-data with a
  * `transloadit` field containing the JSON-encoded assembly status and a

@@ -1,5 +1,6 @@
-import { task, wait, logger } from "@trigger.dev/sdk/v3";
+import { task, wait } from "@trigger.dev/sdk/v3";
 import { cropImagePayloadSchema } from "@/lib/validation";
+import { uploadToTransloadit } from "@/lib/transloadit-server-upload";
 import { z } from "zod";
 
 export type CropImagePayload = z.infer<typeof cropImagePayloadSchema>;
@@ -108,63 +109,4 @@ function probeDimensions(
       resolve({ width: stream.width, height: stream.height });
     });
   });
-}
-
-async function uploadToTransloadit(buffer: Buffer): Promise<string> {
-  const authKey = process.env.TRANSLOADIT_AUTH_KEY;
-  const authSecret = process.env.TRANSLOADIT_AUTH_SECRET;
-  if (!authKey || !authSecret) throw new Error("Transloadit credentials are not set");
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL must be set so Transloadit can call back");
-
-  const { Transloadit } = await import("transloadit");
-  const { Readable } = await import("node:stream");
-  const client = new Transloadit({ authKey, authSecret });
-
-  // Transloadit requires a non-empty `steps` object (ASSEMBLY_NO_STEPS
-  // otherwise) — a single ":original"/"/upload/handle" step with nothing
-  // else is the documented minimal "just accept the upload" pattern, no
-  // permanent storage destination/credentials required.
-  //
-  // Rather than `waitForCompletion: true` (which makes the SDK poll the
-  // assembly status internally under the hood), we create a Trigger.dev
-  // waitpoint token, pass its id to Transloadit via `notify_url`, and
-  // `wait.forToken()` for it. Transloadit POSTs the finished assembly to
-  // our webhook (src/app/api/webhooks/transloadit-crop) as soon as
-  // processing completes, which resolves the token — no polling anywhere
-  // in this path, and the run is actually paused/checkpointed while it
-  // waits instead of holding the worker hot.
-  const token = await wait.createToken({ timeout: "5m" });
-  const notifyUrl = `${appUrl}/api/webhooks/transloadit-crop?token=${token.id}`;
-
-  const assembly = await client.createAssembly({
-    params: {
-      steps: {
-        ":original": { robot: "/upload/handle" },
-      },
-      notify_url: notifyUrl,
-    },
-    uploads: { input: Readable.from(buffer) },
-    waitForCompletion: false,
-  });
-
-  // Diagnostic: check this run's log for the assembly_id, then look it up
-  // directly at https://api2.transloadit.com/assemblies/<assembly_id> (or
-  // in the Transloadit dashboard) to see whether it ever tried calling
-  // notify_url and what response it got back — that tells you definitively
-  // whether the webhook request is reaching this app at all.
-  logger.info("Transloadit assembly created, waiting for notify_url callback", {
-    assemblyId: assembly.assembly_id,
-    assemblySslUrl: assembly.assembly_ssl_url,
-    notifyUrl,
-    waitpointTokenId: token.id,
-  });
-
-  const result = await wait.forToken<{ ok: boolean; url?: string; error?: string }>(token);
-  if (!result.ok) throw new Error("Timed out waiting for Transloadit assembly to complete");
-  if (!result.output.ok || !result.output.url) {
-    throw new Error(result.output.error ?? "Transloadit assembly did not return an uploaded file URL");
-  }
-  return result.output.url;
 }

@@ -21,10 +21,8 @@ import type {
   RequestInputField,
 } from "@/lib/types";
 import { nodeDisplayLabel, slugifyLabel } from "@/lib/types";
-import {
-  uploadImageViaTransloadit,
-  ACCEPTED_IMAGE_TYPES,
-} from "@/lib/transloadit-upload";
+import { ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { useTransloaditUpload } from "@/hooks/useTransloaditUpload";
 import { formatRelativeTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import type { NodeRunRecord } from "@/components/canvas/HistoryPanel";
@@ -61,6 +59,7 @@ export function PlaygroundPanel({
     return initial;
   });
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
+  const { uploadFile } = useTransloaditUpload();
   const [running, setRunning] = useState(false);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [historyTab, setHistoryTab] = useState<"ui" | "api">("ui");
@@ -150,7 +149,7 @@ export function PlaygroundPanel({
     if (!file) return;
     setUploadingFieldId(fieldId);
     try {
-      const url = await uploadImageViaTransloadit(file);
+      const url = await uploadFile(file);
       setFieldValues((prev) => ({ ...prev, [fieldId]: url }));
     } catch (err) {
       console.error("Image upload failed:", err);

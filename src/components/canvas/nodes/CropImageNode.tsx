@@ -10,7 +10,8 @@ import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { CropImageNodeData } from "@/lib/types";
 import { HANDLE_COLORS, PERCENT_HANDLE_COLOR } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { uploadImageViaTransloadit, ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { useTransloaditUpload } from "@/hooks/useTransloaditUpload";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: CropImageNodeData }>;
@@ -27,12 +28,13 @@ export function CropImageNode({ id, data, selected }: Props) {
   const inputConnected = useIsHandleConnected(id, "input_image", "target");
   const connectedImagePreview = useConnectedSourceValue(id, "input_image");
   const [uploading, setUploading] = useState(false);
+  const { uploadFile } = useTransloaditUpload();
 
   async function handleUpload(file: File | undefined) {
     if (!file) return;
     setUploading(true);
     try {
-      const url = await uploadImageViaTransloadit(file);
+      const url = await uploadFile(file);
       updateNodeData(id, { inputImageUrl: url });
     } catch (err) {
       console.error("Image upload failed:", err);

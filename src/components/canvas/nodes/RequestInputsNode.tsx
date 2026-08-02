@@ -8,7 +8,8 @@ import { OutputHandleRow } from "@/components/canvas/HandleRow";
 import { useWorkflowStore, type FlowNode } from "@/store/workflowStore";
 import type { RequestInputsNodeData, RequestInputField } from "@/lib/types";
 import { uid } from "@/lib/utils";
-import { uploadImageViaTransloadit, ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { ACCEPTED_IMAGE_TYPES } from "@/lib/transloadit-upload";
+import { useTransloaditUpload } from "@/hooks/useTransloaditUpload";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 type Props = NodeProps<FlowNode & { data: RequestInputsNodeData }>;
@@ -61,6 +62,7 @@ function AddFieldButton({ onAdd }: { onAdd: (type: "text_field" | "image_field")
 export function RequestInputsNode({ id, data, selected }: Props) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
+  const { uploadFile } = useTransloaditUpload();
 
   function addField(type: "text_field" | "image_field") {
     const existingOfType = data.fields.filter((f) => f.type === type).length;
@@ -93,7 +95,7 @@ export function RequestInputsNode({ id, data, selected }: Props) {
     if (!file) return;
     setUploadingFieldId(fieldId);
     try {
-      const url = await uploadImageViaTransloadit(file);
+      const url = await uploadFile(file);
       updateField(fieldId, { value: url });
     } catch (err) {
       console.error("Image upload failed:", err);
