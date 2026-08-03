@@ -9,6 +9,16 @@ export interface ActiveRun {
   publicAccessToken: string;
 }
 
+const TERMINAL_STATUSES = new Set([
+  "COMPLETED",
+  "FAILED",
+  "CRASHED",
+  "CANCELED",
+  "SYSTEM_FAILURE",
+  "TIMED_OUT",
+  "EXPIRED",
+]);
+
 /**
  * Headless: subscribes to an orchestrator run via Trigger.dev Realtime
  * (useRealtimeRun) and forwards live per-node status updates + the
@@ -31,6 +41,17 @@ export interface ActiveRun {
  * more often than intended, which could cause a genuine completion event
  * to be missed mid-teardown — surfacing as results only appearing after a
  * full page/tab remount forced a fresh fetch, instead of appearing live.
+ *
+ * Also reconciles once whenever the browser tab regains focus (or on
+ * mount) while a run is still being watched — a browser backgrounding a
+ * tab, throttling it, or the machine sleeping can interrupt the
+ * underlying Realtime connection for however long that lasts. If the run
+ * actually finished during that gap, the connection can resume without
+ * ever having delivered the terminal event (it missed the transition, not
+ * just a poll cycle), leaving the UI stuck showing "running" forever with
+ * no further Realtime activity to ever correct it. This check reacts to a
+ * real event (tab regaining visibility, or first mount) — never a timer —
+ * and only calls the one-shot status endpoint, not on any interval.
  */
 export function RunRealtimeSync({
   activeRun,
@@ -45,8 +66,10 @@ export function RunRealtimeSync({
   onSettledRef.current = onSettled;
   const onNodeStatusesRef = useRef(onNodeStatuses);
   onNodeStatusesRef.current = onNodeStatuses;
+  const settledOnceRef = useRef(false);
 
   const handleComplete = useCallback(() => {
+    settledOnceRef.current = true;
     onSettledRef.current();
   }, []);
 
@@ -76,6 +99,36 @@ export function RunRealtimeSync({
     lastSerialized.current = serialized;
     onNodeStatusesRef.current?.(statuses);
   }, [run?.metadata]);
+
+  useEffect(() => {
+    settledOnceRef.current = false;
+
+    const reconcile = async () => {
+      if (settledOnceRef.current || document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`/api/runs/${activeRun.triggerRunId}/status`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { status?: string };
+        if (data.status && TERMINAL_STATUSES.has(data.status) && !settledOnceRef.current) {
+          settledOnceRef.current = true;
+          onSettledRef.current();
+        }
+      } catch {
+        // Non-fatal — Realtime remains the primary mechanism; this is
+        // only a backstop, and will simply be retried on the next
+        // visibility change if it fails transiently.
+      }
+    };
+
+    // Covers the run having already finished in the gap before this
+    // component/subscription even mounted (mirrors the same "check
+    // current state in addition to listening for future events" pattern
+    // used for the Transloadit upload flow).
+    reconcile();
+
+    document.addEventListener("visibilitychange", reconcile);
+    return () => document.removeEventListener("visibilitychange", reconcile);
+  }, [activeRun.triggerRunId]);
 
   return null;
 }
